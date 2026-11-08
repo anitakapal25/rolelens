@@ -44,6 +44,13 @@ CREATE TABLE IF NOT EXISTS counters (
     name  TEXT PRIMARY KEY,
     value INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS fit_cache (
+    job_id     TEXT NOT NULL REFERENCES documents(doc_id) ON DELETE CASCADE,
+    resume_id  TEXT NOT NULL REFERENCES documents(doc_id) ON DELETE CASCADE,
+    match_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (job_id, resume_id)
+);
 INSERT OR IGNORE INTO counters (name, value)
     SELECT 'job', COALESCE(MAX(job_number), 0) FROM documents;
 """
@@ -128,6 +135,20 @@ class DocumentRegistry:
         data = json.loads(row["extraction_json"]) if row["extraction_json"] else None
         return row["doc_type"], data
 
+    def set_fit_matches(self, job_id: str, resume_id: str, matches: dict[str, Any]) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO fit_cache (job_id, resume_id, match_json, created_at) VALUES (?, ?, ?, ?)",
+                (job_id, resume_id, json.dumps(matches), datetime.now(UTC).isoformat()),
+            )
+
+    def get_fit_matches(self, job_id: str, resume_id: str) -> dict[str, Any] | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT match_json FROM fit_cache WHERE job_id = ? AND resume_id = ?", (job_id, resume_id)
+            ).fetchone()
+        return json.loads(row["match_json"]) if row else None
+
     # ----- reads -----
 
     def reserve_job_number(self) -> int:
@@ -141,6 +162,13 @@ class DocumentRegistry:
                 "UPDATE counters SET value = value + 1 WHERE name = 'job' RETURNING value"
             ).fetchone()
         return int(row[0])
+
+    def get_raw_text(self, doc_id: str) -> str:
+        with self._connect() as conn:
+            row = conn.execute("SELECT raw_text FROM documents WHERE doc_id = ?", (doc_id,)).fetchone()
+        if row is None:
+            raise DocumentNotFound(doc_id)
+        return str(row["raw_text"])
 
     def resume_ids(self) -> list[str]:
         with self._connect() as conn:

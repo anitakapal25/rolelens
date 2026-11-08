@@ -138,3 +138,69 @@ class ChatRequest(BaseModel):
 class RetrievalResponse(BaseModel):
     route: RouteResult
     sources: list[RetrievedChunk]
+
+
+# ---------- fit dashboard ----------
+
+MatchStatus = Literal["match", "partial", "missing"]
+
+
+class SkillMatchItem(BaseModel):
+    """LLM output: how the resume covers ONE job skill, referenced by index."""
+
+    job_skill: int = Field(description="Index of the job skill from the numbered job list.")
+    status: MatchStatus = Field(description="match: the resume clearly shows it (same skill or a clear synonym). partial: related or weaker evidence. missing: nothing relevant.")
+    resume_skills: list[int] = Field(description="Indexes of resume skills that provide the evidence; empty when missing.")
+    note: str = Field(description="One short clause (max ~15 words) explaining the judgement.")
+
+
+class SkillMatchResult(BaseModel):
+    items: list[SkillMatchItem]
+
+
+class SkillFit(BaseModel):
+    name: str
+    category: SkillCategory
+    importance: Importance
+    emphasis: Emphasis
+    status: MatchStatus
+    weight: float
+    job_evidence: str
+    resume_skills: list[str]
+    resume_evidence: list[str]
+    note: str
+
+
+class ExperienceFit(BaseModel):
+    required_years: float | None
+    candidate_years: float | None
+    met: bool | None
+
+
+class FitCounts(BaseModel):
+    required_total: int
+    required_matched: int
+    required_partial: int
+    preferred_total: int
+    preferred_matched: int
+    preferred_partial: int
+
+
+Verdict = Literal["strong", "good", "stretch", "weak"]
+
+
+class FitReport(BaseModel):
+    job_id: str
+    job_label: str
+    job_number: int | None
+    title: str | None
+    company: str | None
+    seniority: Seniority
+    score: int
+    verdict: Verdict
+    verdict_text: str
+    experience: ExperienceFit
+    counts: FitCounts
+    matched: list[SkillFit]
+    partial: list[SkillFit]
+    missing: list[SkillFit]

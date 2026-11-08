@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { Chat } from "./components/Chat";
+import { FitDashboard } from "./components/FitDashboard";
 import { UploadPanel } from "./components/UploadPanel";
 import { ApiError, listDocuments } from "./lib/api";
 import type { DocumentSummary } from "./lib/types";
@@ -9,6 +10,7 @@ export default function App() {
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<"chat" | "fit">("chat");
 
   const refresh = useCallback(async () => {
     try {
@@ -55,8 +57,29 @@ export default function App() {
         <aside className="overflow-y-auto pr-1" aria-label="Documents">
           <UploadPanel documents={documents} loading={loading} onChanged={refresh} />
         </aside>
-        <section className="flex min-h-0 flex-col" aria-label="Chat">
-          <Chat documents={documents} />
+        <section className="flex min-h-0 flex-col">
+          <div role="tablist" aria-label="View" className="mb-4 flex gap-1 self-start rounded-xl bg-stone-200/70 p-1">
+            {(["chat", "fit"] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                role="tab"
+                aria-selected={tab === t}
+                onClick={() => setTab(t)}
+                className={`rounded-lg px-4 py-1.5 text-sm font-medium transition
+                  ${tab === t ? "bg-white text-stone-900 shadow-sm" : "text-stone-600 hover:text-stone-900"}`}
+              >
+                {t === "chat" ? "Chat" : "Fit dashboard"}
+              </button>
+            ))}
+          </div>
+          {/* Both stay mounted so chat history survives switching tabs. */}
+          <div className={tab === "chat" ? "flex min-h-0 flex-1 flex-col" : "hidden"} role="tabpanel" aria-label="Chat">
+            <Chat documents={documents} />
+          </div>
+          <div className={tab === "fit" ? "flex min-h-0 flex-1 flex-col" : "hidden"} role="tabpanel" aria-label="Fit dashboard">
+            {tab === "fit" && <FitDashboard documents={documents} />}
+          </div>
         </section>
       </main>
     </div>

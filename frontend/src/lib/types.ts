@@ -66,3 +66,43 @@ export type ChatStreamEvent =
   | { event: "token"; data: { text: string } }
   | { event: "done"; data: DoneEvent }
   | { event: "error"; data: { detail: string; retryable: boolean } };
+
+export type MatchStatus = "match" | "partial" | "missing";
+export type Verdict = "strong" | "good" | "stretch" | "weak";
+
+export interface SkillFit {
+  name: string;
+  category: string;
+  importance: "required" | "preferred";
+  emphasis: "core" | "supporting" | "minor";
+  status: MatchStatus;
+  weight: number;
+  job_evidence: string;
+  resume_skills: string[];
+  resume_evidence: string[];
+  note: string;
+}
+
+export interface FitReport {
+  job_id: string;
+  job_label: string;
+  job_number: number | null;
+  title: string | null;
+  company: string | null;
+  seniority: string;
+  score: number;
+  verdict: Verdict;
+  verdict_text: string;
+  experience: { required_years: number | null; candidate_years: number | null; met: boolean | null };
+  counts: {
+    required_total: number;
+    required_matched: number;
+    required_partial: number;
+    preferred_total: number;
+    preferred_matched: number;
+    preferred_partial: number;
+  };
+  matched: SkillFit[];
+  partial: SkillFit[];
+  missing: SkillFit[];
+}

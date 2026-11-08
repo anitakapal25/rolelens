@@ -83,6 +83,19 @@ Raw notes — rewrite in your own words when turning these into the README.
 - Design: one accent (teal), one neutral ramp (stone), Inter, skeleton loaders while retrieving, blinking caret while streaming, explicit empty/error states. Card title drops the "Job #N —" prefix the badge already shows.
 - No frontend unit tests (no test runner dependency added) — verified with a scripted headless-browser walkthrough instead; listed under "standards skipped".
 
+### M7 — Fit dashboard
+- Split the work: the LLM judges *match / partial / missing* per job skill; code computes every number (weights, score, verdict, ranking). Rejected an LLM-produced score: unexplainable and different on every ask.
+- Matching by one Haiku call per (job, resume) pair (option 1) over code-only synonym tables — "LLMs" vs "LLM-enabled applications", "FastAPI" satisfying "Python web framework" need judgment. Model refers to skills by number (J3, R7), never free text, so answers map back exactly; `normalize_matches` drops out-of-range/duplicate items and downgrades a "match" with no evidence to "partial".
+- Score = Σ weight×credit / Σ weight; weight core 3 / supporting 2 / minor 1, ×0.5 for preferred; credit 1 / 0.5 / 0; experience = one extra weight-2 requirement. Verdict bands 75/55/35. Shown in the UI under "How is the score calculated?".
+- Cache stores the *matches*, not the report — scoring changes apply instantly without new LLM calls. Keyed by (job_id, resume_id) so a new resume recomputes; carries `MATCH_PROMPT_VERSION` so a prompt change invalidates old entries.
+- Years of experience computed in code from the dated roles (Sep 2017 – Present → 9.2 yrs); the extraction's number is only a fallback — on re-upload the extraction returned null and the experience check silently disappeared.
+- Education lines and total experience fed to the matcher as extra "resume skills" — before this, "Bachelor's degree" was "missing" despite my MCA, because extraction only lists skills.
+- Matching at effort `medium` (was `low`): low accepted "Python" as evidence for "production deployments" and "independent work". Prompt now says a language is never evidence for soft skills, years, deployments or domain knowledge.
+- "Biggest gap" in the verdict skips soft skills — "Problem-solving" isn't actionable advice.
+- Measured variance: re-matching the same pair moved Job #2 from 69 → 82. Caching makes a given pair stable; the variance itself goes in the README's honest-limitations paragraph and the M8 eval.
+- Dashboard form per the dataviz guide: hero number + meter (fill on a lighter step of the same hue), ranked horizontal bars on one baseline in one hue for comparison, stat tiles for counts; status shown with icon + label (never colour alone); hover tooltip on bars. Rejected a donut/gauge.
+- Comparison view built (it was first on the cut list) — cheap because `/fit` returns every job's full report in one call; cache misses run in parallel (4 threads).
+
 ## AI workflow
 How the AI assistant is used, kept as notes during the build.
 

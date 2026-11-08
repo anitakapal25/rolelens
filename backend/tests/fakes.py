@@ -10,7 +10,9 @@ from pydantic import BaseModel
 
 from app.llm.client import LLMError, StreamDone, StreamEvent, TextDelta
 from app.llm.pricing import make_usage
-from app.models import Chunk, JobExtraction, JobSkill, ResumeExtraction, ResumeSkill, RouteDecision, Usage
+from app.models import (
+    Chunk, JobExtraction, JobSkill, ResumeExtraction, ResumeSkill, RouteDecision, SkillMatchItem, SkillMatchResult, Usage,
+)
 from app.retrieval.embed import EmbeddingError
 from app.retrieval.store import ScoredChunk, VectorStoreError
 
@@ -29,11 +31,14 @@ JOB_EXTRACTION = JobExtraction(
 
 class FakeLLM:
     def __init__(self, fail: LLMError | None = None, answer: str = "Fake answer [1].",
-                 route: RouteDecision | None = None, fail_stream: LLMError | None = None) -> None:
+                 route: RouteDecision | None = None, fail_stream: LLMError | None = None,
+                 match: SkillMatchResult | None = None) -> None:
         self.fail = fail
         self.answer = answer
         self.route = route or RouteDecision(scope="all_jobs", job_numbers=[])
         self.fail_stream = fail_stream
+        self.match = match or SkillMatchResult(items=[
+            SkillMatchItem(job_skill=1, status="match", resume_skills=[1], note="Listed in skills.")])
         self.calls: list[dict[str, Any]] = []
 
     def extract(self, *, model: str, system: str, user: str, schema: type[T], effort: str = "low",
@@ -41,6 +46,8 @@ class FakeLLM:
         self.calls.append({"model": model, "system": system, "user": user, "schema": schema})
         if self.fail:
             raise self.fail
+        if schema is SkillMatchResult:
+            return schema.model_validate(self.match.model_dump()), make_usage(model, 300, 80)
         if schema is RouteDecision:
             return schema.model_validate(self.route.model_dump()), make_usage(model, 50, 10)
         canned = RESUME_EXTRACTION if schema is ResumeExtraction else JOB_EXTRACTION

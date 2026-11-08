@@ -1,5 +1,5 @@
 import { createSSEParser } from "./sse";
-import type { ChatStreamEvent, DocType, DocumentSummary } from "./types";
+import type { ChatStreamEvent, DocType, DocumentSummary, FitReport } from "./types";
 
 export const API_BASE: string = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
@@ -35,6 +35,8 @@ async function errorDetail(res: Response): Promise<string> {
 }
 
 export const listDocuments = () => request<DocumentSummary[]>("/documents");
+
+export const listFits = () => request<FitReport[]>("/fit");
 
 export function uploadDocument(file: File, docType: DocType): Promise<DocumentSummary> {
   const form = new FormData();
