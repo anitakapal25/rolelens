@@ -52,6 +52,14 @@ class Settings(BaseSettings):
     chat_effort: Literal["low", "medium", "high"] = "low"
     chat_max_tokens: int = 4000
 
+    # Vector store backend: "chroma" (server, persistent) or "memory" (in-process; the free-tier demo)
+    vector_store: Literal["chroma", "memory"] = "chroma"
+
+    # Public demo (Render free tier): read-only sample documents, rate-limited chat
+    demo_mode: bool = False
+    demo_rate_per_ip_hour: int = 15
+    demo_daily_limit: int = 200
+
     # CORS (Vite dev server)
     cors_origins: list[str] = ["http://localhost:5173"]
 

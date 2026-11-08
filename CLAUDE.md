@@ -26,6 +26,8 @@ backend/app/
   llm/            client.py (thin Anthropic wrapper), prompts.py (ALL prompt text), pricing.py
   chat/           service.py: route -> retrieve -> prompt -> stream (the chat use case)
   services.py     Services bundle (settings, registry, llm, embedder, store) injected into routes
+  serve.py        Single-service entry for free hosting: API under /api + built frontend at /
+  demo/           Public demo: seed.json (fictional samples only), seed builder, rate limits, read-only guard
   eval/           golden.yaml, run.py
 backend/tests/    pytest, mirrors app/ (test_chunking.py, test_router.py, ...); fakes.py holds test doubles
 frontend/src/
@@ -85,6 +87,8 @@ README reasoning paragraphs are written by the developer, not generated.
 - Graders check substrings. Before calling a failure an app bug, read the answer: quoting an injected claim
   while refusing it is correct behaviour.
 - `samples/` (real resume, private eval set, screenshots) is gitignored and must stay out of commits.
+- The demo seed is built only from `backend/app/eval/sample_docs/` (`python -m app.demo.seed build`).
+  Rebuild it after changing extraction, chunking, embedding header or matching prompt.
 
 ## Process
 - Every decision gets one line in `docs/decisions.md`: chose X, rejected Y, because Z.

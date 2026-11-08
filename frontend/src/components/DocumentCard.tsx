@@ -5,11 +5,12 @@ import type { DocumentSummary } from "../lib/types";
 
 interface Props {
   doc: DocumentSummary;
+  readOnly?: boolean;
   onRename: (label: string) => Promise<void>;
   onDelete: () => Promise<void>;
 }
 
-export function DocumentCard({ doc, onRename, onDelete }: Props) {
+export function DocumentCard({ doc, readOnly = false, onRename, onDelete }: Props) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(doc.label);
   const [busy, setBusy] = useState(false);
@@ -68,9 +69,9 @@ export function DocumentCard({ doc, onRename, onDelete }: Props) {
           ) : (
             <button
               type="button"
-              onClick={() => setEditing(true)}
-              title={`${doc.label} (click to rename)`}
-              className="block w-full truncate text-left text-sm font-medium text-stone-900 hover:text-accent-700"
+              onClick={() => !readOnly && setEditing(true)}
+              title={readOnly ? doc.label : `${doc.label} (click to rename)`}
+              className={`block w-full truncate text-left text-sm font-medium text-stone-900 ${readOnly ? "cursor-default" : "hover:text-accent-700"}`}
             >
               {displayLabel(doc.label)}
             </button>
@@ -79,7 +80,7 @@ export function DocumentCard({ doc, onRename, onDelete }: Props) {
             {doc.filename} · {doc.chunk_count} chunks
           </p>
         </div>
-        <button
+        {!readOnly && <button
           type="button"
           onClick={remove}
           disabled={busy}
@@ -90,7 +91,7 @@ export function DocumentCard({ doc, onRename, onDelete }: Props) {
           <svg viewBox="0 0 20 20" className="h-4 w-4" fill="currentColor" aria-hidden="true">
             <path d="M6.3 5.3a1 1 0 0 1 1.4 0L10 7.6l2.3-2.3a1 1 0 1 1 1.4 1.4L11.4 9l2.3 2.3a1 1 0 0 1-1.4 1.4L10 10.4l-2.3 2.3a1 1 0 0 1-1.4-1.4L8.6 9 6.3 6.7a1 1 0 0 1 0-1.4Z" />
           </svg>
-        </button>
+        </button>}
       </div>
       {doc.warnings.length > 0 && (
         <div role="note" className="mt-2 flex gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs text-amber-900">

@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 
 from app.config import Settings
+from app.demo.limits import RateLimiter
 from app.ingest.registry import DocumentRegistry
 from app.llm.client import LLMClient
 from app.retrieval.embed import Embedder
@@ -16,3 +17,4 @@ class Services:
     llm: LLMClient
     embedder: Embedder
     store: VectorStore
+    limiter: RateLimiter | None = None  # set only in demo mode

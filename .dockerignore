@@ -1,0 +1,17 @@
+# Root build context (Dockerfile.render). Secrets and personal files must never enter an image.
+.env
+.env.*
+!.env.example
+samples/
+.git/
+.venv/
+**/node_modules
+**/dist
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/*.sqlite3
+backend/data/
+backend/app/eval/results/
+docs/
+*.tsbuildinfo

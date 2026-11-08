@@ -161,6 +161,12 @@ class DocumentRegistry:
 
     # ----- reads -----
 
+    def sync_job_counter(self) -> None:
+        """After inserting documents with explicit job numbers (demo seed), continue after the highest."""
+        with self._connect() as conn:
+            conn.execute("UPDATE counters SET value = MAX(value, (SELECT COALESCE(MAX(job_number), 0) FROM documents))"
+                         " WHERE name = 'job'")
+
     def reserve_job_number(self) -> int:
         """Atomically take the next job number. Numbers are never reused, even if an upload fails.
 

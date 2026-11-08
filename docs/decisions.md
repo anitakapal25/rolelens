@@ -124,6 +124,17 @@ Raw notes — rewrite in your own words when turning these into the README.
 - CI's first run caught a real bug: `import app.main` built the OpenAI client eagerly, and the SDK raises without a key — tests only passed locally because my `.env` had one. SDK clients are now created on first use; the API starts and `/health` works without keys, and the first upload/question says exactly which key is missing.
 - Tests already cover the runbook list (chunking, routing, filtered retrieval, prompt assembly, API with mocked LLM); no new test framework added for the frontend — still a documented gap.
 
+### M9b — Free-tier deployment (Render, public demo)
+- Render free over Oracle/GCP/AWS VMs — no server to manage, deploy from GitHub with a Blueprint; accepted trade-offs: sleeps after 15 min, ~1 min cold start, no disk, 512 MB RAM.
+- One web service instead of three: Render's free plan has no private services or disks, and a public Chroma service would expose the vector DB. FastAPI mounts the API at `/api` and serves the Vite build at `/` (`app/serve.py`) — same origin, no nginx.
+- In-memory vector store (`MemoryStore`, same `VectorStore` protocol as Chroma) — 22 chunks don't need a database, and there's no disk to persist one anyway.
+- Pre-built seed committed (`app/demo/seed.json`, 660 KB): chunks, extractions, embeddings and fit matches for the fictional samples only. Every cold start reloads it with zero model calls — rejected re-ingesting on boot (≈$0.005 and ~30 s per wake-up, plus score drift between wake-ups). Checked: no personal data in it.
+- Demo protection without a password (my choice): read-only (upload/rename/delete/reindex → 403), 15 questions per IP per hour (X-Forwarded-For) and 200 per day → worst case ≈ $2–3/day. Plus: set provider spend limits.
+- Limiter is in-memory and per process — correct for one free instance; Redis if it ever scaled out.
+- Root `.dockerignore` keeps `.env`, `samples/` and local DBs out of the build context (verified with a context-listing build).
+- Verified locally as Render would run it: keys only, no volume, 512 MB cap → 143 MB used, seeded at start, streaming chat, seeded fit scores, 403 on upload, 429 on the 16th question.
+- `docker-compose.yml` and local dev unchanged: demo mode is only switched on by env vars in `Dockerfile.render` / `render.yaml`.
+
 ## AI workflow
 How the AI assistant is used, kept as notes during the build.
 

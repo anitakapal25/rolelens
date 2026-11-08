@@ -126,3 +126,42 @@ class ChromaStore:
             raise VectorStoreError("Failed to reset the vector DB.") from exc
         self._collection = None
         self._col()
+
+
+class MemoryStore:
+    """In-process vector store: cosine similarity over a dict. For the free-tier demo (a few dozen
+    chunks, no disk); it implements the same VectorStore protocol as ChromaStore."""
+
+    def __init__(self) -> None:
+        self._items: dict[str, tuple[Chunk, list[float], float]] = {}
+
+    @staticmethod
+    def _norm(v: list[float]) -> float:
+        return sum(x * x for x in v) ** 0.5 or 1.0
+
+    def upsert(self, chunks: list[Chunk], embeddings: list[list[float]]) -> None:
+        for chunk, vector in zip(chunks, embeddings, strict=True):
+            self._items[chunk.chunk_id] = (chunk, vector, self._norm(vector))
+
+    def delete_document(self, doc_id: str) -> None:
+        self._items = {k: v for k, v in self._items.items() if v[0].doc_id != doc_id}
+
+    def update_label(self, doc_id: str, label: str) -> None:
+        for key, (chunk, vector, norm) in list(self._items.items()):
+            if chunk.doc_id == doc_id:
+                self._items[key] = (chunk.model_copy(update={"doc_label": label}), vector, norm)
+
+    def query(self, embedding: list[float], doc_id: str, k: int) -> list[ScoredChunk]:
+        q_norm = self._norm(embedding)
+        scored = [
+            ScoredChunk(chunk=chunk, distance=1 - sum(a * b for a, b in zip(embedding, vector, strict=True)) / (q_norm * norm))
+            for chunk, vector, norm in self._items.values()
+            if chunk.doc_id == doc_id
+        ]
+        return sorted(scored, key=lambda s: s.distance)[:k]
+
+    def count(self) -> int:
+        return len(self._items)
+
+    def reset(self) -> None:
+        self._items = {}

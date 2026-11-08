@@ -18,9 +18,10 @@ interface Props {
   documents: DocumentSummary[];
   loading: boolean;
   onChanged: () => Promise<void>;
+  readOnly?: boolean;
 }
 
-export function UploadPanel({ documents, loading, onChanged }: Props) {
+export function UploadPanel({ documents, loading, onChanged, readOnly = false }: Props) {
   const [pending, setPending] = useState<Pending[]>([]);
   // Uploads run one at a time, in drop order, even across separate drops.
   const queue = useRef<Promise<void>>(Promise.resolve());
@@ -69,14 +70,14 @@ export function UploadPanel({ documents, loading, onChanged }: Props) {
         ) : (
           <ul className="space-y-2">
             {resume && (
-              <DocumentCard doc={resume} onRename={(l) => rename(resume, l)} onDelete={() => remove(resume)} />
+              <DocumentCard doc={resume} readOnly={readOnly} onRename={(l) => rename(resume, l)} onDelete={() => remove(resume)} />
             )}
             {pendingOf("resume").map((p) => (
               <PendingRow key={p.id} item={p} onDismiss={() => setPending((l) => l.filter((x) => x.id !== p.id))} />
             ))}
           </ul>
         )}
-        <div className="mt-2">
+        <div className={readOnly ? "hidden" : "mt-2"}>
           <Dropzone
             title={resume ? "Replace resume" : "Drop your resume"}
             hint="PDF, DOCX or TXT · up to 5 MB"
@@ -97,14 +98,14 @@ export function UploadPanel({ documents, loading, onChanged }: Props) {
         ) : (
           <ul className="space-y-2">
             {jobs.map((job) => (
-              <DocumentCard key={job.doc_id} doc={job} onRename={(l) => rename(job, l)} onDelete={() => remove(job)} />
+              <DocumentCard key={job.doc_id} doc={job} readOnly={readOnly} onRename={(l) => rename(job, l)} onDelete={() => remove(job)} />
             ))}
             {pendingOf("job").map((p) => (
               <PendingRow key={p.id} item={p} onDismiss={() => setPending((l) => l.filter((x) => x.id !== p.id))} />
             ))}
           </ul>
         )}
-        <div className="mt-2">
+        <div className={readOnly ? "hidden" : "mt-2"}>
           <Dropzone
             title="Add job descriptions"
             hint="Drop one or more · paste the posting into a .txt file"

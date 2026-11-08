@@ -1,0 +1,26 @@
+# Render Blueprint: New > Blueprint > pick this repo. You'll be asked for the two API keys.
+# Free plan: sleeps after 15 min idle (~1 min cold start), no persistent disk; the demo reseeds
+# itself from backend/app/demo/seed.json on every start, with no model calls.
+services:
+  - type: web
+    name: rolelens-demo
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./Dockerfile.render
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false          # prompted in the dashboard; never stored in git
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: DEMO_MODE
+        value: "true"
+      - key: VECTOR_STORE
+        value: memory
+      - key: DEMO_RATE_PER_IP_HOUR
+        value: "15"
+      - key: DEMO_DAILY_LIMIT
+        value: "200"

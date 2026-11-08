@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, File, Form, HTTPException, Response, UploadFile, status
 
 from app.api.deps import ServicesDep
+from app.demo.limits import require_writable
 from app.ingest import service
 from app.ingest.extraction import parse_extraction
 from app.ingest.registry import DocumentNotFound
@@ -33,6 +34,7 @@ def upload_document(
     doc_type: Annotated[DocType, Form()],
     label: Annotated[str | None, Form(max_length=80)] = None,
 ) -> DocumentSummary:
+    require_writable(svc.settings)
     data = file.file.read(svc.settings.max_upload_bytes + 1)  # at most one byte past the cap
     return service.ingest_document(svc, file.filename or "upload", data, doc_type, label)
 
@@ -44,6 +46,7 @@ def list_documents(svc: ServicesDep) -> list[DocumentSummary]:
 
 @router.post("/reindex", responses=UPSTREAM)
 def reindex(svc: ServicesDep) -> service.ReindexResult:
+    require_writable(svc.settings)
     return service.reindex_all(svc)
 
 
@@ -68,6 +71,7 @@ def get_document_extraction(doc_id: str, svc: ServicesDep) -> Extraction:
 
 @router.patch("/{doc_id}", responses=NOT_FOUND)
 def rename_document(doc_id: str, body: RenameRequest, svc: ServicesDep) -> DocumentSummary:
+    require_writable(svc.settings)
     try:
         return service.rename_document(svc, doc_id, body.label.strip())
     except DocumentNotFound as exc:
@@ -76,6 +80,7 @@ def rename_document(doc_id: str, body: RenameRequest, svc: ServicesDep) -> Docum
 
 @router.delete("/{doc_id}", status_code=status.HTTP_204_NO_CONTENT, responses=NOT_FOUND)
 def delete_document(doc_id: str, svc: ServicesDep) -> Response:
+    require_writable(svc.settings)
     try:
         service.delete_document(svc, doc_id)
     except DocumentNotFound as exc:

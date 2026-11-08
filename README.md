@@ -55,6 +55,18 @@ make test        # 141 offline tests
 make eval        # golden-set eval against real models (~$0.15)
 ```
 
+### Free public demo (Render)
+
+A read-only demo runs as **one** free Render web service: [`Dockerfile.render`](Dockerfile.render)
+serves the API under `/api` and the built frontend at `/`, with an in-memory vector store seeded
+from the fictional sample documents ([`backend/app/demo/seed.json`](backend/app/demo/seed.json)),
+so it starts without any model calls. Uploads are disabled and chat is limited to 15 questions per
+IP per hour and 200 per day.
+
+To deploy your own: Render dashboard → **New → Blueprint** → select this repo
+([`render.yaml`](render.yaml)) → enter `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` → **Apply**.
+The free plan sleeps after 15 minutes idle, so the first request after a pause takes about a minute.
+
 ## Architecture
 _TODO_
 

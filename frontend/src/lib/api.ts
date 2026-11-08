@@ -38,6 +38,13 @@ export const listDocuments = () => request<DocumentSummary[]>("/documents");
 
 export const listFits = () => request<FitReport[]>("/fit");
 
+export interface AppConfig {
+  demo: boolean;
+  demo_rate_per_ip_hour: number;
+}
+
+export const getConfig = () => request<AppConfig>("/config");
+
 export function uploadDocument(file: File, docType: DocType): Promise<DocumentSummary> {
   const form = new FormData();
   form.append("file", file);

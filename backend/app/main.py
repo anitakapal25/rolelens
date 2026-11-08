@@ -13,7 +13,8 @@ from app.ingest.registry import DocumentRegistry
 from app.llm.client import ClaudeClient, LLMClient, LLMError
 from app.observability import RequestContextMiddleware, configure_logging, metrics
 from app.retrieval.embed import Embedder, EmbeddingError, OpenAIEmbedder
-from app.retrieval.store import ChromaStore, VectorStore, VectorStoreError
+from app.retrieval.store import ChromaStore, MemoryStore, VectorStore, VectorStoreError
+from app.demo.limits import RateLimiter
 from app.services import Services
 
 logger = logging.getLogger(__name__)
@@ -38,8 +39,18 @@ def build_services(
         registry=DocumentRegistry(settings.registry_db_path),
         llm=llm or ClaudeClient(settings.anthropic_api_key.get_secret_value()),
         embedder=embedder or OpenAIEmbedder(settings.openai_api_key.get_secret_value(), settings.embedding_model),
-        store=store or ChromaStore(settings.chroma_host, settings.chroma_port, settings.chroma_collection),
+        store=store or (MemoryStore() if settings.vector_store == "memory"
+                        else ChromaStore(settings.chroma_host, settings.chroma_port, settings.chroma_collection)),
     )
+
+
+def _start_demo(svc: Services) -> None:
+    """Public demo: load the pre-built sample seed (no model calls) and switch on chat limits."""
+    from app.demo.seed import read_seed, load_seed
+
+    svc.limiter = RateLimiter(svc.settings.demo_rate_per_ip_hour, svc.settings.demo_daily_limit)
+    loaded = load_seed(svc, read_seed())
+    logger.info("demo mode", extra={"seeded_documents": loaded, "vector_store": svc.settings.vector_store})
 
 
 def create_app(settings: Settings | None = None, services: Services | None = None) -> FastAPI:
@@ -48,6 +59,8 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
 
     app = FastAPI(title="RoleLens API", version="0.1.0")
     app.state.services = services or build_services(settings)
+    if settings.demo_mode:
+        _start_demo(app.state.services)
 
     app.add_middleware(RequestContextMiddleware)
     app.add_middleware(
@@ -93,6 +106,11 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
             "documents": svc.registry.count(),
             "indexed_chunks": indexed,
         }
+
+    @app.get("/config")
+    def get_config() -> dict[str, object]:
+        """What the frontend needs to adapt its UI (e.g. hide uploads in the public demo)."""
+        return {"demo": settings.demo_mode, "demo_rate_per_ip_hour": settings.demo_rate_per_ip_hour}
 
     @app.get("/metrics")
     def get_metrics() -> dict[str, object]:

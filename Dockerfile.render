@@ -1,0 +1,33 @@
+# Single-service image for free-tier hosting (Render): API under /api, built frontend at /,
+# in-memory vector store seeded from fictional sample documents. docker-compose.yml is unchanged.
+
+# --- Stage 1: build the frontend (calls the API on the same origin under /api) ---
+FROM node:22-slim AS frontend
+WORKDIR /frontend
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY frontend/ ./
+ENV VITE_API_BASE_URL=/api
+RUN npm run build
+
+# --- Stage 2: API + static files ---
+FROM python:3.12-slim
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
+WORKDIR /app
+COPY backend/requirements.txt .
+RUN pip install -r requirements.txt
+COPY backend/app ./app
+COPY --from=frontend /frontend/dist ./static
+
+RUN useradd --create-home --uid 1000 rolelens && mkdir -p /data && chown rolelens:rolelens /data
+USER rolelens
+
+# Demo defaults; API keys come from the host's environment settings, never from the image.
+ENV STATIC_DIR=/app/static \
+    REGISTRY_DB_PATH=/data/registry.sqlite3 \
+    VECTOR_STORE=memory \
+    DEMO_MODE=true \
+    PORT=10000
+EXPOSE 10000
+# Shell form so $PORT (set by the host) is expanded.
+CMD uvicorn app.serve:app --host 0.0.0.0 --port ${PORT} --proxy-headers --forwarded-allow-ips='*'

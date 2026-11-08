@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Chat } from "./components/Chat";
 import { FitDashboard } from "./components/FitDashboard";
 import { UploadPanel } from "./components/UploadPanel";
-import { ApiError, listDocuments } from "./lib/api";
+import { ApiError, getConfig, listDocuments, type AppConfig } from "./lib/api";
 import type { DocumentSummary } from "./lib/types";
 
 export default function App() {
@@ -11,6 +11,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<"chat" | "fit">("chat");
+  const [config, setConfig] = useState<AppConfig>({ demo: false, demo_rate_per_ip_hour: 0 });
 
   const refresh = useCallback(async () => {
     try {
@@ -25,6 +26,7 @@ export default function App() {
 
   useEffect(() => {
     void refresh();
+    getConfig().then(setConfig).catch(() => undefined); // older API: assume not a demo
   }, [refresh]);
 
   return (
@@ -42,6 +44,20 @@ export default function App() {
         </div>
       </header>
 
+      {config.demo && (
+        <div className="border-b border-accent-200 bg-accent-50">
+          <p className="mx-auto max-w-7xl px-6 py-2 text-sm text-accent-800">
+            <span className="font-semibold">Public demo.</span> It uses a fictional resume and three sample job
+            descriptions (one hides a prompt-injection attempt). Uploads are off and questions are limited to{" "}
+            {config.demo_rate_per_ip_hour} per hour.{" "}
+            <a className="font-medium underline" href="https://github.com/anitakapal25/rolelens" target="_blank" rel="noreferrer">
+              Run it locally
+            </a>{" "}
+            to analyse your own resume.
+          </p>
+        </div>
+      )}
+
       {error && (
         <div role="alert" className="border-b border-red-200 bg-red-50">
           <p className="mx-auto max-w-7xl px-6 py-2 text-sm text-red-800">
@@ -55,7 +71,7 @@ export default function App() {
 
       <main className="mx-auto grid w-full max-w-7xl flex-1 grid-cols-1 gap-6 overflow-hidden px-6 py-6 lg:grid-cols-[340px_1fr]">
         <aside className="overflow-y-auto pr-1" aria-label="Documents">
-          <UploadPanel documents={documents} loading={loading} onChanged={refresh} />
+          <UploadPanel documents={documents} loading={loading} onChanged={refresh} readOnly={config.demo} />
         </aside>
         <section className="flex min-h-0 flex-col">
           <div role="tablist" aria-label="View" className="mb-4 flex gap-1 self-start rounded-xl bg-stone-200/70 p-1">
