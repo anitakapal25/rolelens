@@ -22,5 +22,23 @@ Raw notes — rewrite in your own words when turning these into the README.
 - `.env` gitignored before first real commit; `.env.example` lists every key — rejected committing a sample `.env` because it is too easy to fill in and push.
 - Python 3.12 for the backend (local and Docker) — rejected system Python 3.14 because some wheels (PyMuPDF, chromadb) lag new releases.
 
+### M2 — AI rules file
+- `CLAUDE.md` at repo root over `.cursorrules` — rejected `.cursorrules` because I'm using Claude Code; any assistant can read a plain markdown file anyway.
+- "Ask before adding a dependency" rule — rejected letting the assistant install freely because each feature tends to pull in a framework.
+- SQLite via stdlib `sqlite3` for the registry — rejected SQLAlchemy/ORM as unnecessary for one table.
+- Prompts centralised in `llm/prompts.py` — rejected inline f-strings because prompts are code I need to review, diff and test.
+
 ## AI workflow
-(Filled in from M2 onward: where the assistant saved time, what I rewrote, what I refused to let it touch.)
+How the AI assistant is used, kept as notes during the build.
+
+**Rules:** `CLAUDE.md` fixes the stack, layout, style, test and dependency rules so every session starts from the same constraints.
+
+**Handed to the assistant:** scaffolding, boilerplate (FastAPI wiring, Pydantic models, Dockerfiles), parsers, test cases, frontend components.
+
+**Hand-written / owned by me:** the answer prompt (`build_answer_prompt`), per-document retrieval scoring, README reasoning.
+
+**Refused to let it touch:** adding dependencies without asking, committing anything with my work email, writing the README's reasoning.
+
+**Log** (add entries as they happen):
+- M1: Assistant scaffolded the layout, env template and scope list from the runbook. _(Your note: what you changed or kept.)_
+- M2: Assistant drafted `CLAUDE.md` from the runbook's rule list. _(Your note: what you changed after reviewing it.)_
