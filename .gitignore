@@ -25,3 +25,6 @@ chroma_data/
 .vscode/
 .idea/
 .DS_Store
+
+# Personal sample documents (resume, job descriptions)
+samples/
