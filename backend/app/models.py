@@ -47,3 +47,57 @@ class RenameRequest(BaseModel):
 
 class ErrorResponse(BaseModel):
     detail: str
+
+
+class Usage(BaseModel):
+    """Token usage and estimated cost of one model call."""
+
+    model: str
+    input_tokens: int
+    output_tokens: int
+    cost_usd: float
+
+
+# ---------- structured extraction (LLM output schemas) ----------
+# Kept simple on purpose: these become JSON schemas for Claude structured outputs.
+
+SkillCategory = Literal["language", "framework", "ai_ml", "data", "cloud_devops", "practice", "domain", "soft_skill", "other"]
+
+
+class ResumeSkill(BaseModel):
+    name: str = Field(description="Canonical short skill name, e.g. 'Python', 'FastAPI', 'RAG', 'AWS'.")
+    category: SkillCategory
+    years: float | None = Field(description="Years of hands-on use if it can be inferred from dated roles, else null.")
+    evidence: str = Field(description="Short verbatim quote from the resume that shows this skill.")
+
+
+class ResumeExtraction(BaseModel):
+    candidate_name: str | None
+    headline: str | None = Field(description="Current title or one-line positioning statement.")
+    total_years_experience: float | None
+    skills: list[ResumeSkill]
+
+
+Importance = Literal["required", "preferred"]
+Emphasis = Literal["core", "supporting", "minor"]
+Seniority = Literal["junior", "mid", "senior", "staff_or_principal", "lead_or_manager", "unspecified"]
+
+
+class JobSkill(BaseModel):
+    name: str = Field(description="Canonical short skill name, e.g. 'Python', 'LangChain', 'Azure'.")
+    category: SkillCategory
+    importance: Importance
+    emphasis: Emphasis = Field(description="core = central to the role or repeated; supporting = clearly asked for; minor = mentioned in passing.")
+    min_years: float | None
+    evidence: str = Field(description="Short verbatim quote from the job description.")
+
+
+class JobExtraction(BaseModel):
+    title: str | None
+    company: str | None
+    seniority: Seniority
+    min_years_experience: float | None
+    skills: list[JobSkill]
+
+
+Extraction = ResumeExtraction | JobExtraction

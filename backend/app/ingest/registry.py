@@ -11,6 +11,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from app.models import Chunk, DocType, DocumentSummary, SectionSummary
 
@@ -77,13 +78,16 @@ class DocumentRegistry:
         page_count: int,
         raw_text: str,
         chunks: list[Chunk],
+        extraction: dict[str, Any] | None = None,
     ) -> DocumentSummary:
         with self._connect() as conn:
             conn.execute(
                 "INSERT INTO documents (doc_id, doc_type, label, label_is_custom, job_number, filename,"
-                " page_count, char_count, raw_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                " page_count, char_count, raw_text, extraction_json, created_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (doc_id, doc_type, label, int(label_is_custom), job_number, filename, page_count,
-                 len(raw_text), raw_text, datetime.now(UTC).isoformat()),
+                 len(raw_text), raw_text, json.dumps(extraction) if extraction is not None else None,
+                 datetime.now(UTC).isoformat()),
             )
             conn.executemany(
                 "INSERT INTO chunks (chunk_id, doc_id, idx, section, company, role, entry, text)"
@@ -108,12 +112,15 @@ class DocumentRegistry:
             if cur.rowcount == 0:
                 raise DocumentNotFound(doc_id)
 
-    def set_extraction(self, doc_id: str, extraction: dict[str, object]) -> None:
+    def get_extraction(self, doc_id: str) -> tuple[DocType, dict[str, Any] | None]:
         with self._connect() as conn:
-            conn.execute(
-                "UPDATE documents SET extraction_json = ? WHERE doc_id = ?",
-                (json.dumps(extraction), doc_id),
-            )
+            row = conn.execute(
+                "SELECT doc_type, extraction_json FROM documents WHERE doc_id = ?", (doc_id,)
+            ).fetchone()
+        if row is None:
+            raise DocumentNotFound(doc_id)
+        data = json.loads(row["extraction_json"]) if row["extraction_json"] else None
+        return row["doc_type"], data
 
     # ----- reads -----
 

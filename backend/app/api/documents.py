@@ -2,66 +2,82 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile, status
+from fastapi import APIRouter, File, Form, HTTPException, Response, UploadFile, status
 
-from app.config import Settings, get_settings
-from app.ingest.registry import DocumentNotFound, DocumentRegistry
-from app.ingest.service import ingest_document
-from app.models import Chunk, DocType, DocumentSummary, ErrorResponse, RenameRequest
+from app.api.deps import ServicesDep
+from app.ingest import service
+from app.ingest.extraction import parse_extraction
+from app.ingest.registry import DocumentNotFound
+from app.models import Chunk, DocType, DocumentSummary, ErrorResponse, Extraction, RenameRequest
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
-
-def get_registry(request: Request) -> DocumentRegistry:
-    registry: DocumentRegistry = request.app.state.registry
-    return registry
+NOT_FOUND = {404: {"model": ErrorResponse}}
+UPSTREAM = {502: {"model": ErrorResponse}, 503: {"model": ErrorResponse}}
 
 
-RegistryDep = Annotated[DocumentRegistry, Depends(get_registry)]
-SettingsDep = Annotated[Settings, Depends(get_settings)]
+def _not_found(exc: DocumentNotFound) -> HTTPException:
+    return HTTPException(status.HTTP_404_NOT_FOUND, "Document not found.")
 
 
+# Sync handler on purpose: ingestion makes blocking SDK calls, and FastAPI runs sync handlers
+# in a threadpool so they don't block the event loop.
 @router.post(
     "",
     status_code=status.HTTP_201_CREATED,
-    responses={400: {"model": ErrorResponse}, 413: {"model": ErrorResponse}, 422: {"model": ErrorResponse}},
+    responses={400: {"model": ErrorResponse}, 413: {"model": ErrorResponse}, 422: {"model": ErrorResponse}, **UPSTREAM},
 )
-async def upload_document(
-    registry: RegistryDep,
-    settings: SettingsDep,
+def upload_document(
+    svc: ServicesDep,
     file: Annotated[UploadFile, File()],
     doc_type: Annotated[DocType, Form()],
     label: Annotated[str | None, Form(max_length=80)] = None,
 ) -> DocumentSummary:
-    data = await file.read(settings.max_upload_bytes + 1)  # read at most one byte past the cap
-    return ingest_document(registry, settings, file.filename or "upload", data, doc_type, label)
+    data = file.file.read(svc.settings.max_upload_bytes + 1)  # at most one byte past the cap
+    return service.ingest_document(svc, file.filename or "upload", data, doc_type, label)
 
 
 @router.get("")
-def list_documents(registry: RegistryDep) -> list[DocumentSummary]:
-    return registry.list_summaries()
+def list_documents(svc: ServicesDep) -> list[DocumentSummary]:
+    return svc.registry.list_summaries()
 
 
-@router.get("/{doc_id}/chunks", responses={404: {"model": ErrorResponse}})
-def get_document_chunks(doc_id: str, registry: RegistryDep) -> list[Chunk]:
+@router.post("/reindex", responses=UPSTREAM)
+def reindex(svc: ServicesDep) -> service.ReindexResult:
+    return service.reindex_all(svc)
+
+
+@router.get("/{doc_id}/chunks", responses=NOT_FOUND)
+def get_document_chunks(doc_id: str, svc: ServicesDep) -> list[Chunk]:
     try:
-        return registry.get_chunks(doc_id)
+        return svc.registry.get_chunks(doc_id)
     except DocumentNotFound as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Document not found.") from exc
+        raise _not_found(exc) from exc
 
 
-@router.patch("/{doc_id}", responses={404: {"model": ErrorResponse}})
-def rename_document(doc_id: str, body: RenameRequest, registry: RegistryDep) -> DocumentSummary:
+@router.get("/{doc_id}/extraction", responses=NOT_FOUND)
+def get_document_extraction(doc_id: str, svc: ServicesDep) -> Extraction:
     try:
-        return registry.rename(doc_id, body.label.strip())
+        doc_type, data = svc.registry.get_extraction(doc_id)
     except DocumentNotFound as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Document not found.") from exc
+        raise _not_found(exc) from exc
+    if data is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No extraction stored for this document.")
+    return parse_extraction(doc_type, data)
 
 
-@router.delete("/{doc_id}", status_code=status.HTTP_204_NO_CONTENT, responses={404: {"model": ErrorResponse}})
-def delete_document(doc_id: str, registry: RegistryDep) -> Response:
+@router.patch("/{doc_id}", responses=NOT_FOUND)
+def rename_document(doc_id: str, body: RenameRequest, svc: ServicesDep) -> DocumentSummary:
     try:
-        registry.delete(doc_id)
+        return service.rename_document(svc, doc_id, body.label.strip())
     except DocumentNotFound as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Document not found.") from exc
+        raise _not_found(exc) from exc
+
+
+@router.delete("/{doc_id}", status_code=status.HTTP_204_NO_CONTENT, responses=NOT_FOUND)
+def delete_document(doc_id: str, svc: ServicesDep) -> Response:
+    try:
+        service.delete_document(svc, doc_id)
+    except DocumentNotFound as exc:
+        raise _not_found(exc) from exc
     return Response(status_code=status.HTTP_204_NO_CONTENT)

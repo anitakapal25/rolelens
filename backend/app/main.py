@@ -10,6 +10,12 @@ from app.api import documents
 from app.config import Settings, get_settings
 from app.ingest.parse import EmptyDocument, FileTooLarge, IngestError, TooManyPages, UnsupportedFileType
 from app.ingest.registry import DocumentRegistry
+from app.llm.client import ClaudeClient, LLMClient, LLMError
+from app.retrieval.embed import Embedder, EmbeddingError, OpenAIEmbedder
+from app.retrieval.store import ChromaStore, VectorStore, VectorStoreError
+from app.services import Services
+
+logger = logging.getLogger(__name__)
 
 INGEST_ERROR_STATUS: dict[type[IngestError], int] = {
     UnsupportedFileType: 400,
@@ -19,13 +25,28 @@ INGEST_ERROR_STATUS: dict[type[IngestError], int] = {
 }
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def build_services(
+    settings: Settings,
+    llm: LLMClient | None = None,
+    embedder: Embedder | None = None,
+    store: VectorStore | None = None,
+) -> Services:
+    """Real clients by default; tests pass fakes."""
+    return Services(
+        settings=settings,
+        registry=DocumentRegistry(settings.registry_db_path),
+        llm=llm or ClaudeClient(settings.anthropic_api_key.get_secret_value()),
+        embedder=embedder or OpenAIEmbedder(settings.openai_api_key.get_secret_value(), settings.embedding_model),
+        store=store or ChromaStore(settings.chroma_host, settings.chroma_port, settings.chroma_collection),
+    )
+
+
+def create_app(settings: Settings | None = None, services: Services | None = None) -> FastAPI:
     settings = settings or get_settings()
     logging.basicConfig(level=logging.INFO)
 
     app = FastAPI(title="RoleLens API", version="0.1.0")
-    app.state.registry = DocumentRegistry(settings.registry_db_path)
-    app.dependency_overrides[get_settings] = lambda: settings
+    app.state.services = services or build_services(settings)
 
     app.add_middleware(
         CORSMiddleware,
@@ -38,6 +59,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def ingest_error_handler(_: Request, exc: IngestError) -> JSONResponse:
         code = INGEST_ERROR_STATUS.get(type(exc), 400)
         return JSONResponse(status_code=code, content={"detail": str(exc)})
+
+    @app.exception_handler(LLMError)
+    async def llm_error_handler(_: Request, exc: LLMError) -> JSONResponse:
+        logger.error("llm error", extra={"error": str(exc), "retryable": exc.retryable})
+        return JSONResponse(status_code=503 if exc.retryable else 502, content={"detail": str(exc)})
+
+    @app.exception_handler(EmbeddingError)
+    async def embedding_error_handler(_: Request, exc: EmbeddingError) -> JSONResponse:
+        logger.error("embedding error", extra={"error": str(exc)})
+        return JSONResponse(status_code=502, content={"detail": str(exc)})
+
+    @app.exception_handler(VectorStoreError)
+    async def store_error_handler(_: Request, exc: VectorStoreError) -> JSONResponse:
+        logger.error("vector store error", extra={"error": str(exc)})
+        return JSONResponse(status_code=503, content={"detail": str(exc)})
 
     @app.get("/health")
     def health() -> dict[str, str]:

@@ -41,6 +41,21 @@ Raw notes — rewrite in your own words when turning these into the README.
 - Validation: extension allow-list, 5 MB cap (reads at most cap+1 bytes), 10-page PDF cap, reject empty text (scanned PDFs).
 - Test fixtures use a fictional resume — rejected using my real resume in tests so personal data stays out of git.
 
+### M4 — Extraction, embeddings, vector store
+- Structured extraction with Claude structured outputs (`messages.parse` + Pydantic schema) over "please return JSON" prompting — the API constrains output to the schema, so no regex-scraping of JSON and no retry-on-malformed loop.
+- Haiku 5.5 at effort `low` for extraction (~$0.0007/job, ~4–8 s) — rejected Sonnet for this because extraction is pattern-following, not reasoning; Sonnet reserved for chat answers.
+- Extraction runs once per document at upload and is cached in SQLite — rejected computing gap analysis in the chat model on every question (slower, costlier, and results drift between asks).
+- Skill schema has `importance` (required/preferred) and `emphasis` (core/supporting/minor) — the dashboard needs both to rank missing requirements.
+- Auto-labels from extraction ("Job #2 — Senior Forward Deployed Engineer, Platinus"); company suffixes stripped, titles cut on word boundaries; a user-set label always wins.
+- Contextual header prepended before embedding (`[Job description · requirements]`) — a bare line like "5+ years of Python" carries no hint of whose requirement it is. Header uses section/entry, not the editable label, so renames don't invalidate vectors.
+- `chromadb-client` (thin HTTP client) over full `chromadb` — the server runs in Docker; no need for its local ONNX embedding stack.
+- Cosine distance; embeddings computed by us and passed in (`embedding_function=None`) — one embedding model, chosen explicitly, not Chroma's default.
+- Atomic ingest: LLM + embedding calls run before any write; registry rolled back if the Chroma upsert fails; the old resume is deleted only after the new one is fully stored.
+- Chroma connected lazily, errors mapped to 503 — the API starts and explains itself even when the vector DB is down.
+- `POST /documents/reindex` rebuilds Chroma from SQLite — proves the "registry is truth, vector DB is an index" design and makes embedding-model changes cheap.
+- Sync route for upload (FastAPI threadpool) over async — SDK calls here are blocking; async would block the event loop.
+- Prices kept in `llm/pricing.py` and every call logs tokens + estimated cost — feeds observability in M8.
+
 ## AI workflow
 How the AI assistant is used, kept as notes during the build.
 
