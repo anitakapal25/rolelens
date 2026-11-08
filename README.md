@@ -6,7 +6,7 @@
 > metaphor here once (the job description is the lens; your resume is what you look at through it;
 > the same resume looks different through each role) and never again.
 
-**Live demo:** _add the Hugging Face Space URL after deploying_ (read-only, fictional sample documents).
+**Live app:** https://rolelens-demo.onrender.com (uploads enabled; shared workspace with temporary storage).
 
 | Chat with citations | Fit dashboard | Prompt injection refused |
 |---|---|---|
@@ -63,18 +63,18 @@ make test        # 151 offline tests (LLM, embeddings and vector DB are faked)
 make eval        # golden-set eval against the real models (~$0.15)
 ```
 
-### Public demo (free hosting)
+### Render (free hosting)
 
-The demo runs as **one** container ([`Dockerfile.render`](Dockerfile.render)): the API under `/api`,
-the built frontend at `/`, and an in-memory vector store seeded from a pre-processed snapshot of
+The app runs as **one** container ([`Dockerfile.render`](Dockerfile.render)): the API under `/api`,
+the built frontend at `/`, and an in-memory vector store. Optional demo mode (`DEMO_MODE=true`) loads
+a pre-processed snapshot of
 the sample documents ([`backend/app/demo/seed.json`](backend/app/demo/seed.json)), so it starts
-with zero model calls. Uploads are disabled; chat is limited to 15 questions per IP per hour and
+with zero model calls. In demo mode, uploads are disabled; chat is limited to 15 questions per IP per hour and
 200 per day.
 
-- **Hugging Face Spaces** (free CPU, no card): save a write token to `~/.cache/huggingface/token`, then
-  `python deploy/huggingface/deploy.py --secrets` (creates the Space, sets the two keys as Space
-  secrets from `.env`, pushes only git-tracked files).
 - **Render**: New → Blueprint → this repo ([`render.yaml`](render.yaml)) → enter the two keys.
+  The current service has `DEMO_MODE=false` to enable uploads. Data is lost when the free service
+  sleeps or restarts, and all visitors share the same workspace.
 
 ## Architecture
 

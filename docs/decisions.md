@@ -135,6 +135,9 @@ Raw notes — rewrite in your own words when turning these into the README.
 - Verified locally as Render would run it: keys only, no volume, 512 MB cap → 143 MB used, seeded at start, streaming chat, seeded fit scores, 403 on upload, 429 on the 16th question.
 - `docker-compose.yml` and local dev unchanged: demo mode is only switched on by env vars in `Dockerfile.render` / `render.yaml`.
 
+### Deployment cleanup
+- Removed the unused Hugging Face deployment script and instructions; Render is the active hosting target. Kept demo fixtures, evaluation data and Docker Compose because the app, tests and local development still use them.
+
 ## AI workflow
 How the AI assistant is used, kept as notes during the build.
 
