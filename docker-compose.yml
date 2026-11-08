@@ -1,9 +1,10 @@
-# M4: vector DB only. Backend and frontend services are added in M9.
+# RoleLens: cp .env.example .env, add your two API keys, then `docker compose up --build`.
+# App: http://localhost:8080   API docs: http://localhost:8000/docs   Chroma: localhost:8001
 services:
   chroma:
     image: chromadb/chroma:1.5.9
     ports:
-      - "8001:8000"
+      - "8001:8000"          # published so `make backend` (outside Docker) can use it too
     volumes:
       - chroma_data:/data
     environment:
@@ -15,5 +16,35 @@ services:
       retries: 10
     restart: unless-stopped
 
+  backend:
+    build: ./backend
+    env_file: .env           # API keys and model settings
+    environment:             # container networking overrides whatever .env says for local dev
+      CHROMA_HOST: chroma
+      CHROMA_PORT: "8000"
+      REGISTRY_DB_PATH: /data/registry.sqlite3
+      CORS_ORIGINS: '["http://localhost:8080", "http://localhost:5173"]'
+    ports:
+      - "8000:8000"
+    volumes:
+      - backend_data:/data
+    depends_on:
+      chroma:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: /api
+    ports:
+      - "8080:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
-  chroma_data:
+  chroma_data:     # vector index
+  backend_data:    # SQLite registry (documents, chunks, extractions, fit cache)

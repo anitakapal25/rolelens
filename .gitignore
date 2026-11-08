@@ -33,3 +33,6 @@ samples/
 # Eval reports: keep only the committed sample result as evidence
 backend/app/eval/results/*
 !backend/app/eval/results/sample-latest.json
+
+# Machine-specific compose tweaks (e.g. DNS workarounds)
+docker-compose.override.yml
