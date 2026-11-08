@@ -92,6 +92,20 @@ export function DocumentCard({ doc, onRename, onDelete }: Props) {
           </svg>
         </button>
       </div>
+      {doc.warnings.length > 0 && (
+        <div role="note" className="mt-2 flex gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs text-amber-900">
+          <svg viewBox="0 0 16 16" className="mt-0.5 h-3.5 w-3.5 shrink-0" fill="currentColor" aria-hidden="true">
+            <path d="M8 1.5l7 12.5H1L8 1.5zm0 4.5a.75.75 0 0 0-.75.75v3a.75.75 0 0 0 1.5 0v-3A.75.75 0 0 0 8 6zm0 6.25a.9.9 0 1 0 0-1.8.9.9 0 0 0 0 1.8z" />
+          </svg>
+          <div>
+            <p className="font-medium">Contains text addressed to AI tools</p>
+            <p className="mt-0.5 text-amber-800">
+              RoleLens treats it as ordinary document text and never follows it.
+            </p>
+            <p className="mt-1 italic text-amber-800" title={doc.warnings.join("\n")}>“{doc.warnings[0]}”</p>
+          </div>
+        </div>
+      )}
       <ul className="mt-2 flex flex-wrap gap-1" aria-label="Detected sections">
         {doc.sections.map((s) => (
           <li key={s.name} className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] text-stone-600">

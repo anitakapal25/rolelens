@@ -11,6 +11,7 @@ from app.config import Settings, get_settings
 from app.ingest.parse import EmptyDocument, FileTooLarge, IngestError, TooManyPages, UnsupportedFileType
 from app.ingest.registry import DocumentRegistry
 from app.llm.client import ClaudeClient, LLMClient, LLMError
+from app.observability import RequestContextMiddleware, configure_logging, metrics
 from app.retrieval.embed import Embedder, EmbeddingError, OpenAIEmbedder
 from app.retrieval.store import ChromaStore, VectorStore, VectorStoreError
 from app.services import Services
@@ -43,16 +44,18 @@ def build_services(
 
 def create_app(settings: Settings | None = None, services: Services | None = None) -> FastAPI:
     settings = settings or get_settings()
-    logging.basicConfig(level=logging.INFO)
+    configure_logging()
 
     app = FastAPI(title="RoleLens API", version="0.1.0")
     app.state.services = services or build_services(settings)
 
+    app.add_middleware(RequestContextMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=["X-Request-ID"],
     )
 
     @app.exception_handler(IngestError)
@@ -76,8 +79,24 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         return JSONResponse(status_code=503, content={"detail": str(exc)})
 
     @app.get("/health")
-    def health() -> dict[str, str]:
-        return {"status": "ok"}
+    def health() -> dict[str, object]:
+        """Liveness plus dependency checks. 'degraded' = API up but the vector DB is unreachable."""
+        svc: Services = app.state.services
+        try:
+            indexed: int | str = svc.store.count()
+            chroma = "ok"
+        except VectorStoreError:
+            indexed, chroma = "unknown", "unavailable"
+        return {
+            "status": "ok" if chroma == "ok" else "degraded",
+            "chroma": chroma,
+            "documents": svc.registry.count(),
+            "indexed_chunks": indexed,
+        }
+
+    @app.get("/metrics")
+    def get_metrics() -> dict[str, object]:
+        return metrics.snapshot()
 
     app.include_router(documents.router)
     app.include_router(chat.router)

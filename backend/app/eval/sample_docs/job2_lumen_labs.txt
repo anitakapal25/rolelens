@@ -1,0 +1,21 @@
+Machine Learning Engineer, LLM Applications
+Lumen Labs
+
+Overview
+Lumen Labs is a 40-person AI startup building document assistants for law firms.
+
+What you'll do
+Build retrieval-augmented generation pipelines over large document collections.
+Fine-tune and evaluate models with PyTorch.
+Ship LLM features to production and monitor their quality with evaluation sets.
+
+Requirements
+3+ years of experience in Python.
+Hands-on experience with PyTorch.
+Experience building with LLMs and RAG, including LangChain or LlamaIndex.
+Experience with vector databases such as pgvector, Pinecone or Weaviate.
+Experience designing evaluations for ML or LLM systems.
+
+Preferred
+Experience deploying models on Kubernetes.
+Experience with GPU training infrastructure.

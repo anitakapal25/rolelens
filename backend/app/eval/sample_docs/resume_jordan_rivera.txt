@@ -1,0 +1,47 @@
+Jordan Rivera
+Senior Backend Engineer | jordan.rivera@example.com | Lisbon, Portugal
+
+Professional Summary
+Backend engineer with experience building payment, logistics and data-platform services in Python.
+Comfortable owning services end to end on AWS, from schema design to on-call. Recently focused on
+retrieval-augmented generation prototypes for document question answering.
+
+Technical Skills
+Languages: Python, SQL, Bash
+Frameworks: FastAPI, Django, Celery, pandas, scikit-learn
+Data & messaging: PostgreSQL, Redis, Apache Kafka, Apache Airflow, pgvector
+Cloud & DevOps: AWS (Lambda, ECS, S3, RDS), Docker, Terraform, GitHub Actions
+AI: LangChain, OpenAI API, embeddings, retrieval-augmented generation
+
+Professional Experience
+Senior Software Engineer | Northstar Payments
+Mar 2021 - Present
+• Led the rebuild of the card-authorisation service in FastAPI and PostgreSQL, handling 1,200 requests per second at p99 under 80 ms.
+• Introduced Kafka-based event streaming for settlement, replacing nightly batch jobs.
+• Mentored four engineers and ran the team's on-call rotation.
+
+Software Engineer | Cartwheel Logistics
+Jun 2018 - Feb 2021
+• Built a route-optimisation API in Django used by 300 delivery drivers daily.
+• Moved reporting pipelines to Apache Airflow, cutting failed nightly runs from weekly to rare.
+
+Junior Developer | Pixelforge Studio
+Sep 2016 - May 2018
+• Maintained Python tooling for game-asset pipelines and wrote internal Flask dashboards.
+
+Projects
+ClauseFinder - Contract Q&A
+GitHub | Python, LangChain, pgvector
+• Built a retrieval-augmented question-answering tool over 2,000 contracts with cited answers.
+• Evaluated answers against a 40-question golden set and reached 85% accuracy.
+
+Fleet ETA Predictor
+GitHub | Python, scikit-learn
+• Trained a gradient-boosting model predicting delivery arrival times within 6 minutes on average.
+
+Education
+BSc Computer Science | University of Leeds
+2012 - 2016
+
+Certifications
+AWS Certified Solutions Architect - Associate (2022)

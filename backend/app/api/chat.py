@@ -10,6 +10,7 @@ from fastapi.responses import StreamingResponse
 from app.api.deps import ServicesDep
 from app.chat.service import retrieve_for_question, stream_answer
 from app.models import ChatRequest, ErrorResponse, RetrievalResponse
+from app.observability import request_id_var
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -25,8 +26,10 @@ def to_sse(events: Iterator[tuple[str, dict[str, Any]]]) -> Iterator[str]:
 def chat(body: ChatRequest, svc: ServicesDep) -> StreamingResponse:
     """Server-Sent Events: route, sources, token*, then done | error."""
     retrieval = retrieve_for_question(svc, body.question)  # errors here -> normal HTTP error codes
+    request_id = request_id_var.get()  # the stream outlives the middleware's context
 
     def events() -> Iterator[tuple[str, dict[str, Any]]]:
+        request_id_var.set(request_id)
         yield "route", retrieval.route.model_dump()
         yield "sources", {"sources": [s.model_dump() for s in retrieval.sources]}
         yield from stream_answer(svc, body.question, retrieval)

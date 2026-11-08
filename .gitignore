@@ -29,3 +29,7 @@ chroma_data/
 
 # Personal sample documents (resume, job descriptions)
 samples/
+
+# Eval reports: keep only the committed sample result as evidence
+backend/app/eval/results/*
+!backend/app/eval/results/sample-latest.json

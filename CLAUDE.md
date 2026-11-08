@@ -78,6 +78,14 @@ README reasoning paragraphs are written by the developer, not generated.
 - Commit as `anitakapal25 <anitakapal25@gmail.com>` (repo-local config).
 - Small commits with real messages. At the end of each milestone, update `docs/decisions.md`, add `docs/learning/MN-*.md`, then commit and push.
 
+## Evaluation
+- After any change to prompts, routing, retrieval, chunking or matching: run `make test`, then `make eval`
+  (real API calls, about $0.15) and report the pass rate with the failures read, not just the number.
+- Golden-set questions are always quoted in YAML (an unquoted `Job #2` becomes `Job`).
+- Graders check substrings. Before calling a failure an app bug, read the answer: quoting an injected claim
+  while refusing it is correct behaviour.
+- `samples/` (real resume, private eval set, screenshots) is gitignored and must stay out of commits.
+
 ## Process
 - Every decision gets one line in `docs/decisions.md`: chose X, rejected Y, because Z.
 - Scope is fixed by the README's scope contract. New ideas go to "What's next", not into the code.

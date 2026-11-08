@@ -67,3 +67,10 @@ def test_chat_with_no_documents_still_answers(client: TestClient) -> None:
 
 def test_chat_rejects_empty_question(client: TestClient) -> None:
     assert client.post("/chat", json={"question": ""}).status_code == 422
+
+
+def test_small_resume_is_sent_whole(client: TestClient, services: Services, resume_text: str, job_text: str) -> None:
+    ids = seed(client, resume_text, job_text)
+    resume_chunks = len(client.get(f"/documents/{ids['resume']}/chunks").json())
+    body = client.post("/chat/retrieve", json={"question": "Summarise my resume"}).json()
+    assert sum(s["chunk"]["doc_id"] == ids["resume"] for s in body["sources"]) == resume_chunks

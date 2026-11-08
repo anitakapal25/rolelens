@@ -30,6 +30,7 @@ class DocRef(BaseModel):
     doc_type: str
     label: str
     job_number: int | None = None
+    chunk_count: int = 0
     title: str | None = None
     company: str | None = None
 

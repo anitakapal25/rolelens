@@ -38,6 +38,7 @@ class DocumentSummary(BaseModel):
     char_count: int
     chunk_count: int
     sections: list[SectionSummary]
+    warnings: list[str] = []
     created_at: datetime
 
 
@@ -138,6 +139,7 @@ class ChatRequest(BaseModel):
 class RetrievalResponse(BaseModel):
     route: RouteResult
     sources: list[RetrievedChunk]
+    retrieval_ms: float = 0.0
 
 
 # ---------- fit dashboard ----------

@@ -5,16 +5,19 @@ embedding_text() is pure: it prepends a short context header so a chunk like
 """
 
 import logging
+import re
 from typing import Protocol
 
 import openai
 
 from app.llm.pricing import make_usage
+from app.observability import metrics
 from app.models import Chunk, Usage
 
 logger = logging.getLogger(__name__)
 
 DOC_KIND = {"resume": "Resume", "job": "Job description"}
+CURRENT_ROLE = re.compile(r"\d{4}\s*(?:-|–|—|to)\s*(?:present|current|now)\b", re.IGNORECASE)
 
 
 class EmbeddingError(Exception):
@@ -26,10 +29,16 @@ class Embedder(Protocol):
 
 
 def embedding_text(chunk: Chunk) -> str:
-    """Context header + chunk text. Uses section/entry (stable) rather than the user-editable label."""
+    """Context header + chunk text. Uses section/entry (stable) rather than the user-editable label.
+
+    Experience entries dated "... - Present" are tagged "current role": embeddings don't link the word
+    "currently" in a question to "Present" in a date range (found by the eval).
+    """
     parts = [DOC_KIND[chunk.doc_type], chunk.section.replace("_", " ")]
     if chunk.entry:
         parts.append(chunk.entry)
+    if chunk.section == "experience" and CURRENT_ROLE.search(chunk.text):
+        parts.append("current role")
     return f"[{' · '.join(parts)}]\n{chunk.text}"
 
 
@@ -57,5 +66,6 @@ class OpenAIEmbedder:
             vectors.extend(item.embedding for item in sorted(response.data, key=lambda d: d.index))
             tokens += response.usage.total_tokens
         usage = make_usage(self.model, tokens, 0)
+        metrics.record_usage(tokens, 0, usage.cost_usd)
         logger.info("embedded", extra={"texts": len(texts), "tokens": tokens, "cost_usd": usage.cost_usd})
         return vectors, usage

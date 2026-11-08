@@ -67,3 +67,9 @@ def test_select_drops_far_chunks_but_keeps_best() -> None:
 def test_number_chunks_flattens_in_order() -> None:
     numbered = number_chunks([[scored("a", 0, 0.1)], [], [scored("b", 0, 0.2), scored("b", 1, 0.3)]])
     assert [(r.n, r.chunk.doc_id) for r in numbered] == [(1, "a"), (2, "b"), (3, "b")]
+
+
+def test_whole_document_keeps_far_chunks() -> None:
+    hits = [scored("r", 1, 0.5), scored("r", 2, 0.95)]
+    assert len(select_for_document(hits, k=10, max_distance=0.8)) == 1
+    assert len(select_for_document(hits, k=10, max_distance=0.8, whole_document=True)) == 2

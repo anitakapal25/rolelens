@@ -17,6 +17,7 @@ export interface DocumentSummary {
   char_count: number;
   chunk_count: number;
   sections: SectionSummary[];
+  warnings: string[];
   created_at: string;
 }
 

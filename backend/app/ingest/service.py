@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from app.ingest.chunking import chunk_document
 from app.ingest.extraction import auto_label, extract_structured
+from app.ingest.guardrails import injection_signals
 from app.ingest.parse import parse_document
 from app.models import DocType, DocumentSummary
 from app.retrieval.embed import embedding_text
@@ -31,6 +32,10 @@ def ingest_document(
     s = svc.settings
     parsed = parse_document(filename, data, s.max_upload_bytes, s.max_pdf_pages)
 
+    warnings = injection_signals(parsed.text)
+    if warnings:
+        logger.warning("possible prompt injection in upload", extra={"doc_filename": filename, "signals": warnings})
+
     doc_id = uuid.uuid4().hex[:12]
     job_number = svc.registry.reserve_job_number() if doc_type == "job" else None
 
@@ -47,7 +52,7 @@ def ingest_document(
     summary = svc.registry.add_document(
         doc_id=doc_id, doc_type=doc_type, label=final_label, label_is_custom=bool(custom_label),
         job_number=job_number, filename=filename, page_count=parsed.page_count, raw_text=parsed.text,
-        chunks=chunks, extraction=extraction.model_dump(),
+        chunks=chunks, extraction=extraction.model_dump(), warnings=warnings,
     )
     try:
         svc.store.upsert(chunks, vectors)

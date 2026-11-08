@@ -1,0 +1,23 @@
+Senior Backend Engineer, Data Platform
+Meridian Health
+
+About the role
+Meridian Health builds data infrastructure for hospital networks. You will design the services that
+move clinical and claims data between providers and payers.
+
+Responsibilities
+Design and operate Python services that ingest clinical and claims data at scale.
+Build streaming pipelines on Apache Kafka and batch workflows on Airflow.
+Own PostgreSQL schemas and query performance for multi-terabyte datasets.
+Work with compliance to keep every pipeline HIPAA compliant.
+
+Requirements
+6+ years of professional backend engineering experience.
+Strong Python and SQL.
+Production experience with Apache Kafka or a similar event-streaming platform.
+Experience running services on AWS.
+Understanding of healthcare data privacy rules such as HIPAA.
+
+Nice to have
+Experience with the FHIR or HL7 healthcare data standards.
+dbt for analytics engineering.

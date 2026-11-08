@@ -20,11 +20,16 @@ from app.retrieval.embed import Embedder
 from app.retrieval.store import ScoredChunk, VectorStore
 
 
-def select_for_document(hits: list[ScoredChunk], k: int, max_distance: float) -> list[ScoredChunk]:
-    """Pure: nearest-first hits of ONE document -> the ones to keep."""
+def select_for_document(
+    hits: list[ScoredChunk], k: int, max_distance: float, whole_document: bool = False
+) -> list[ScoredChunk]:
+    """Pure: nearest-first hits of ONE document -> the ones to keep.
+
+    whole_document=True (a small resume sent in full) skips the distance cut-off.
+    """
     ranked = sorted(hits, key=lambda h: h.distance)[:k]
-    if not ranked:
-        return []
+    if not ranked or whole_document:
+        return ranked
     return [ranked[0]] + [h for h in ranked[1:] if h.distance <= max_distance]
 
 
@@ -42,17 +47,18 @@ def retrieve(
     k_for: Callable[[str], int],
     max_distance: float,
     doc_order: Callable[[str], tuple[int, int]],
+    whole: Callable[[str], bool] = lambda _: False,
 ) -> list[RetrievedChunk]:
     """Embed the question once, search each routed document separately, then merge.
 
-    k_for(doc_id) gives that document's k (the resume gets a larger one).
+    k_for(doc_id) gives that document's k; whole(doc_id) marks documents sent in full (small resumes).
     """
     if not doc_ids:
         return []
     vectors, _ = embedder.embed([question])
     query = vectors[0]
     per_doc = [
-        select_for_document(store.query(query, doc_id, k_for(doc_id)), k_for(doc_id), max_distance)
+        select_for_document(store.query(query, doc_id, k_for(doc_id)), k_for(doc_id), max_distance, whole(doc_id))
         for doc_id in sorted(doc_ids, key=doc_order)
     ]
     return number_chunks(per_doc)

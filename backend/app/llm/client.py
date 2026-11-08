@@ -18,6 +18,7 @@ from anthropic.types import MessageParam
 from pydantic import BaseModel
 
 from app.llm.pricing import make_usage
+from app.observability import metrics
 from app.models import Usage
 
 logger = logging.getLogger(__name__)
@@ -83,6 +84,7 @@ class ClaudeClient:
             raise _to_llm_error(exc) from exc
 
         usage = make_usage(model, response.usage.input_tokens, response.usage.output_tokens)
+        metrics.record_usage(usage.input_tokens, usage.output_tokens, usage.cost_usd)
         if response.stop_reason == "refusal":
             raise LLMError("The model declined to process this document.")
         if response.stop_reason == "max_tokens":
@@ -122,6 +124,7 @@ class ClaudeClient:
             raise _to_llm_error(exc) from exc
 
         usage = make_usage(final.model, final.usage.input_tokens, final.usage.output_tokens)
+        metrics.record_usage(usage.input_tokens, usage.output_tokens, usage.cost_usd)
         logger.info("llm stream", extra={"model": model, "stop_reason": final.stop_reason,
                                          **usage.model_dump(exclude={"model"})})
         yield StreamDone(usage=usage, stop_reason=final.stop_reason)

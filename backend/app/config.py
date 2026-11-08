@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     # Retrieval
     top_k_per_doc: int = 4
     top_k_resume: int = 6  # the resume is the other half of every fit question: give it more room
+    resume_full_max_chunks: int = 12  # a resume this small is sent whole (eval: top-k kept missing roles)
     max_distance: float = 0.85  # cosine distance cut-off; the best chunk per routed doc is always kept
 
     # Chat

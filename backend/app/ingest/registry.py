@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS documents (
     char_count      INTEGER NOT NULL,
     raw_text        TEXT NOT NULL,
     extraction_json TEXT,
+    warnings_json   TEXT,
     created_at      TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS chunks (
@@ -66,6 +67,14 @@ class DocumentRegistry:
         db_path.parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as conn:
             conn.executescript(SCHEMA)
+            self._migrate(conn)
+
+    @staticmethod
+    def _migrate(conn: sqlite3.Connection) -> None:
+        """Additive migrations for databases created by earlier versions."""
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(documents)")}
+        if "warnings_json" not in columns:
+            conn.execute("ALTER TABLE documents ADD COLUMN warnings_json TEXT")
 
     @contextmanager
     def _connect(self) -> Iterator[sqlite3.Connection]:
@@ -92,15 +101,16 @@ class DocumentRegistry:
         raw_text: str,
         chunks: list[Chunk],
         extraction: dict[str, Any] | None = None,
+        warnings: list[str] | None = None,
     ) -> DocumentSummary:
         with self._connect() as conn:
             conn.execute(
                 "INSERT INTO documents (doc_id, doc_type, label, label_is_custom, job_number, filename,"
-                " page_count, char_count, raw_text, extraction_json, created_at)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                " page_count, char_count, raw_text, extraction_json, warnings_json, created_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (doc_id, doc_type, label, int(label_is_custom), job_number, filename, page_count,
                  len(raw_text), raw_text, json.dumps(extraction) if extraction is not None else None,
-                 datetime.now(UTC).isoformat()),
+                 json.dumps(warnings or []), datetime.now(UTC).isoformat()),
             )
             conn.executemany(
                 "INSERT INTO chunks (chunk_id, doc_id, idx, section, company, role, entry, text)"
@@ -170,6 +180,10 @@ class DocumentRegistry:
             raise DocumentNotFound(doc_id)
         return str(row["raw_text"])
 
+    def count(self) -> int:
+        with self._connect() as conn:
+            return int(conn.execute("SELECT COUNT(*) FROM documents").fetchone()[0])
+
     def resume_ids(self) -> list[str]:
         with self._connect() as conn:
             rows = conn.execute("SELECT doc_id FROM documents WHERE doc_type = 'resume'").fetchall()
@@ -185,8 +199,8 @@ class DocumentRegistry:
     def get_summary(self, doc_id: str) -> DocumentSummary:
         with self._connect() as conn:
             row = conn.execute(
-                "SELECT doc_id, doc_type, label, filename, job_number, page_count, char_count, created_at"
-                " FROM documents WHERE doc_id = ?",
+                "SELECT doc_id, doc_type, label, filename, job_number, page_count, char_count, created_at,"
+                " warnings_json FROM documents WHERE doc_id = ?",
                 (doc_id,),
             ).fetchone()
             if row is None:
@@ -195,8 +209,11 @@ class DocumentRegistry:
                 "SELECT section FROM chunks WHERE doc_id = ? ORDER BY idx", (doc_id,)
             ).fetchall()
         counts = Counter(s["section"] for s in sections)  # Counter keeps first-seen order
+        fields = dict(row)
+        warnings = json.loads(fields.pop("warnings_json") or "[]")
         return DocumentSummary(
-            **dict(row),
+            **fields,
+            warnings=warnings,
             chunk_count=len(sections),
             sections=[SectionSummary(name=n, chunk_count=c) for n, c in counts.items()],
         )

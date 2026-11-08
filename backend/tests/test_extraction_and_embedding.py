@@ -79,3 +79,10 @@ def test_chunk_metadata_drops_none_and_round_trips() -> None:
     meta = chunk_metadata(c)
     assert "role" not in meta and "text" not in meta and meta["company"] == "Acme"
     assert chunk_from_record(c.chunk_id, c.text, meta) == c
+
+
+def test_current_role_tagged_in_embedding_header() -> None:
+    current = make_chunk(entry="Engineer | Acme", text="Engineer | Acme\nMar 2021 - Present\n• Built APIs")
+    past = make_chunk(entry="Dev | Globex", text="Dev | Globex\n2018 - 2020\n• Built reports")
+    assert embedding_text(current).startswith("[Resume · experience · Engineer | Acme · current role]")
+    assert "current role" not in embedding_text(past)

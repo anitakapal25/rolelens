@@ -14,6 +14,7 @@ from app.ingest.registry import DocumentRegistry
 from app.llm.client import LLMError, StreamDone, TextDelta
 from app.llm.prompts import build_answer_prompt
 from app.models import RetrievalResponse, RetrievedChunk
+from app.observability import metrics
 from app.retrieval.router import DocRef, route_question
 from app.retrieval.search import retrieve
 from app.services import Services
@@ -30,6 +31,7 @@ def load_doc_refs(registry: DocumentRegistry) -> list[DocRef]:
         extraction = extraction or {}
         refs.append(DocRef(
             doc_id=doc.doc_id, doc_type=doc.doc_type, label=doc.label, job_number=doc.job_number,
+            chunk_count=doc.chunk_count,
             title=extraction.get("title"), company=extraction.get("company"),
         ))
     return refs
@@ -53,15 +55,24 @@ def extract_citations(text: str, max_n: int) -> list[int]:
 
 def retrieve_for_question(svc: Services, question: str) -> RetrievalResponse:
     s = svc.settings
+    started = time.perf_counter()
     refs = load_doc_refs(svc.registry)
     route = route_question(question, refs, svc.llm, s.fast_model)
-    resume_ids = {r.doc_id for r in refs if r.doc_type == "resume"}
+    resume_chunks = {r.doc_id: r.chunk_count for r in refs if r.doc_type == "resume"}
 
     def k_for(doc_id: str) -> int:
-        return s.top_k_resume if doc_id in resume_ids else s.top_k_per_doc
+        if doc_id not in resume_chunks:
+            return s.top_k_per_doc
+        # The resume is the subject of nearly every question. When it is small, send all of it:
+        # top-k inside a 10-chunk resume kept dropping the one role a question was about.
+        n = resume_chunks[doc_id]
+        return n if n <= s.resume_full_max_chunks else s.top_k_resume
+
+    def whole(doc_id: str) -> bool:
+        return 0 < resume_chunks.get(doc_id, 0) <= s.resume_full_max_chunks
 
     sources = retrieve(question, route.doc_ids, svc.embedder, svc.store, k_for, s.max_distance,
-                       doc_order_key(refs))
+                       doc_order_key(refs), whole)
     # The registry owns labels; the index may hold a stale one after a rename.
     labels = {r.doc_id: r.label for r in refs}
     sources = [
@@ -69,11 +80,13 @@ def retrieve_for_question(svc: Services, question: str) -> RetrievalResponse:
                        chunk=r.chunk.model_copy(update={"doc_label": labels.get(r.chunk.doc_id, r.chunk.doc_label)}))
         for r in sources
     ]
+    retrieval_ms = round((time.perf_counter() - started) * 1000, 1)
     logger.info("retrieved", extra={
-        "route_method": route.method, "routed_doc_ids": route.doc_ids,
-        "chunks": [(r.chunk.chunk_id, r.distance) for r in sources],
+        "question": question, "route_method": route.method, "route_reason": route.reason,
+        "routed_doc_ids": route.doc_ids, "chunks": [[r.chunk.chunk_id, r.distance] for r in sources],
+        "retrieval_ms": retrieval_ms,
     })
-    return RetrievalResponse(route=route, sources=sources)
+    return RetrievalResponse(route=route, sources=sources, retrieval_ms=retrieval_ms)
 
 
 def stream_answer(svc: Services, question: str, retrieval: RetrievalResponse) -> Iterator[tuple[str, dict[str, Any]]]:
@@ -98,7 +111,9 @@ def stream_answer(svc: Services, question: str, retrieval: RetrievalResponse) ->
                     "latency_ms": round((time.perf_counter() - started) * 1000),
                 }
                 logger.info("answered", extra={"question": question, **done})
+                metrics.record_chat(ok=True, retrieval_ms=retrieval.retrieval_ms)
                 yield "done", done
     except LLMError as exc:
         logger.error("answer stream failed", extra={"error": str(exc)})
+        metrics.record_chat(ok=False, retrieval_ms=retrieval.retrieval_ms)
         yield "error", {"detail": str(exc), "retryable": exc.retryable}
