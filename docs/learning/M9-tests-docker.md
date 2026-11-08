@@ -82,6 +82,8 @@ Builds first failed with "Temporary failure in name resolution". Your Docker dae
 2. **frontend:** `npm run build`, the strict TypeScript check plus the bundle.
 3. **docker:** `docker compose build`, so a broken Dockerfile is caught before a reviewer finds it.
 
+**CI's first run failed, and was right to.** The backend job died while loading `conftest`: `import app.main` runs `create_app()`, which built the OpenAI client immediately, and the OpenAI SDK raises if there's no key. Locally your `.env` hid it. The fix, lazy clients created on first use, also improves the product: the API now starts and `/health` answers without keys, and the first upload or question says exactly which key is missing. Lesson: **CI is the first "machine" without your secrets**. Reproduce its failure locally (a fresh clone with keys unset) before fixing.
+
 The golden-set eval calls paid models, so it isn't in CI. It's a manual `make eval`, and the production answer is a scheduled job with a budget.
 
 ### 10. Test coverage vs. the runbook's list

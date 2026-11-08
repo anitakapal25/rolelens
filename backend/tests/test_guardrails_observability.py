@@ -124,3 +124,21 @@ def test_metrics_percentiles_and_usage() -> None:
     assert snap["routes"]["GET /x"]["p95_ms"] >= 90
     assert snap["llm"] == {"calls": 1, "input_tokens": 100, "output_tokens": 20, "estimated_cost_usd": 0.01}
     assert snap["chat"]["answers"] == 1
+
+
+# ----- startup without API keys (CI has none) -----
+
+def test_app_starts_without_keys_and_fails_clearly_on_use(tmp_path: Path) -> None:
+    from app.config import Settings
+    from app.llm.client import ClaudeClient, LLMError
+    from app.main import build_services, create_app
+    from app.retrieval.embed import EmbeddingError, OpenAIEmbedder
+
+    settings = Settings(registry_db_path=tmp_path / "r.sqlite3", anthropic_api_key="", openai_api_key="",
+                        _env_file=None)
+    services = build_services(settings, store=InMemoryStore())  # real clients, no keys
+    assert TestClient(create_app(settings, services)).get("/health").status_code == 200
+    with pytest.raises(EmbeddingError, match="OPENAI_API_KEY"):
+        OpenAIEmbedder("", "text-embedding-3-small").embed(["x"])
+    with pytest.raises(LLMError, match="ANTHROPIC_API_KEY"):
+        ClaudeClient("").stream_text(model="m", system="s", messages=[]).__next__()

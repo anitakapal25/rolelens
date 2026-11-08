@@ -48,16 +48,25 @@ def batched(items: list[str], size: int) -> list[list[str]]:
 
 class OpenAIEmbedder:
     def __init__(self, api_key: str, model: str, batch_size: int = 100) -> None:
-        self._client = openai.OpenAI(api_key=api_key, timeout=30.0, max_retries=2)
+        self._api_key = api_key
+        self._client: openai.OpenAI | None = None
         self.model = model
         self.batch_size = batch_size
+
+    def _sdk(self) -> openai.OpenAI:
+        """Created on first use, so the app (and the tests) start without an OpenAI key."""
+        if self._client is None:
+            if not self._api_key:
+                raise EmbeddingError("OPENAI_API_KEY is not set. Add it to .env and restart.")
+            self._client = openai.OpenAI(api_key=self._api_key, timeout=30.0, max_retries=2)
+        return self._client
 
     def embed(self, texts: list[str]) -> tuple[list[list[float]], Usage]:
         vectors: list[list[float]] = []
         tokens = 0
         for batch in batched(texts, self.batch_size):
             try:
-                response = self._client.embeddings.create(model=self.model, input=batch)
+                response = self._sdk().embeddings.create(model=self.model, input=batch)
             except openai.AuthenticationError as exc:
                 raise EmbeddingError("The OpenAI API key is missing or invalid.") from exc
             except openai.APIError as exc:

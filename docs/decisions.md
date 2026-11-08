@@ -121,6 +121,7 @@ Raw notes — rewrite in your own words when turning these into the README.
 - Clean-clone check done for real: fresh `git clone` into a temp dir → `cp .env.example .env` → two keys → `docker compose up --build` → upload, chat, fit, injection all work at :8080. Clone and its `.env` deleted afterwards.
 - Local blocker found on the way: my Docker daemon used corporate DNS unreachable off-network, so builds couldn't resolve npm/PyPI. Fixed on my machine (daemon.json); nothing machine-specific committed.
 - CI (GitHub Actions): offline backend tests, frontend strict build, `docker compose build`. The golden-set eval needs paid API keys, so it stays a manual `make eval`.
+- CI's first run caught a real bug: `import app.main` built the OpenAI client eagerly, and the SDK raises without a key — tests only passed locally because my `.env` had one. SDK clients are now created on first use; the API starts and `/health` works without keys, and the first upload/question says exactly which key is missing.
 - Tests already cover the runbook list (chunking, routing, filtered retrieval, prompt assembly, API with mocked LLM); no new test framework added for the frontend — still a documented gap.
 
 ## AI workflow

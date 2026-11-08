@@ -64,7 +64,18 @@ class LLMClient(Protocol):
 
 class ClaudeClient:
     def __init__(self, api_key: str, timeout_s: float = 60.0, max_retries: int = 2) -> None:
-        self._client = anthropic.Anthropic(api_key=api_key, timeout=timeout_s, max_retries=max_retries)
+        self._api_key, self._timeout_s, self._max_retries = api_key, timeout_s, max_retries
+        self._sdk: anthropic.Anthropic | None = None
+
+    @property
+    def _client(self) -> anthropic.Anthropic:
+        """Created on first use, so the app (and the tests) start without an Anthropic key."""
+        if self._sdk is None:
+            if not self._api_key:
+                raise LLMError("ANTHROPIC_API_KEY is not set. Add it to .env and restart.")
+            self._sdk = anthropic.Anthropic(api_key=self._api_key, timeout=self._timeout_s,
+                                            max_retries=self._max_retries)
+        return self._sdk
 
     def extract(
         self, *, model: str, system: str, user: str, schema: type[T], effort: Effort = "low",
