@@ -23,7 +23,37 @@ Out of scope (→ "What's next"):
 - Job scraping from URLs
 
 ## Setup
-_TODO (M9)_
+
+Needs Docker (with Compose v2), an Anthropic API key and an OpenAI API key.
+
+```bash
+git clone https://github.com/anitakapal25/rolelens.git
+cd rolelens
+cp .env.example .env          # then set ANTHROPIC_API_KEY and OPENAI_API_KEY in .env
+docker compose up --build
+```
+
+Open **http://localhost:8080**. The API docs are at http://localhost:8000/docs.
+First build takes about a minute; later starts take seconds. Data survives restarts
+(named volumes); `docker compose down -v` wipes it.
+
+To try it without your own files, upload the fictional samples in
+[`backend/app/eval/sample_docs/`](backend/app/eval/sample_docs/): one resume and three job
+descriptions (the Brightwave one contains a prompt-injection attempt).
+
+### Local development (without Docker for the app)
+
+Needs Python 3.12 and Node 22.
+
+```bash
+python3.12 -m venv .venv && .venv/bin/pip install -r backend/requirements-dev.txt
+(cd frontend && npm install)
+make chroma      # vector DB in Docker on :8001
+make backend     # API on :8000 (reload)
+make frontend    # UI on :5173
+make test        # 141 offline tests
+make eval        # golden-set eval against real models (~$0.15)
+```
 
 ## Architecture
 _TODO_

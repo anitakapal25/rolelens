@@ -110,6 +110,19 @@ Raw notes — rewrite in your own words when turning these into the README.
 - `/health` checks Chroma and reports `degraded` instead of failing — the API can still list documents when the vector DB is down.
 - SQLite schema change (warnings column) shipped with an additive migration (`PRAGMA table_info` → `ALTER TABLE`) so existing databases keep working.
 
+### M9 — Tests & Docker
+- Three services (chroma, backend, frontend) with health-gated `depends_on` — backend waits for Chroma, frontend for the backend; no "connection refused" races at startup.
+- Backend image: `python:3.12-slim`, dependencies in their own layer (cached until requirements change), non-root user, `HEALTHCHECK` hitting `/health`. 770 MB, mostly PyMuPDF and chromadb-client's dependencies — acceptable; a slimmer base or wheels-only stage is a later optimisation.
+- Frontend image: multi-stage — Node builds, nginx serves (74 MB, no Node or sources in the final image).
+- nginx proxies `/api` to the backend on the same origin — no CORS in production, one port for reviewers; `proxy_buffering off` so SSE tokens stream (measured: first token 1.2 s, done 5.3 s, 120 events through nginx).
+- Build stage on `node:22-slim`, not Alpine — Vite 8 / Tailwind 4 ship native binaries and the lockfile was resolved on glibc; the Alpine `npm ci` crashed.
+- Named volumes for Chroma and the SQLite registry — verified: `down` + `up` keeps 4 documents / 22 chunks; `down -v` wipes.
+- Compose `environment:` overrides `.env` for container networking (`CHROMA_HOST=chroma`), so the same `.env` works for local dev and Docker.
+- Clean-clone check done for real: fresh `git clone` into a temp dir → `cp .env.example .env` → two keys → `docker compose up --build` → upload, chat, fit, injection all work at :8080. Clone and its `.env` deleted afterwards.
+- Local blocker found on the way: my Docker daemon used corporate DNS unreachable off-network, so builds couldn't resolve npm/PyPI. Fixed on my machine (daemon.json); nothing machine-specific committed.
+- CI (GitHub Actions): offline backend tests, frontend strict build, `docker compose build`. The golden-set eval needs paid API keys, so it stays a manual `make eval`.
+- Tests already cover the runbook list (chunking, routing, filtered retrieval, prompt assembly, API with mocked LLM); no new test framework added for the frontend — still a documented gap.
+
 ## AI workflow
 How the AI assistant is used, kept as notes during the build.
 
