@@ -23,9 +23,11 @@ backend/app/
   api/            Route handlers ONLY: validate input, call a service, return a model
   ingest/         parse.py, chunking.py, registry.py, extraction
   retrieval/      embed.py, store.py, router.py, search.py
-  llm/            client.py (thin Anthropic wrapper), prompts.py (ALL prompt text)
+  llm/            client.py (thin Anthropic wrapper), prompts.py (ALL prompt text), pricing.py
+  chat/           service.py: route -> retrieve -> prompt -> stream (the chat use case)
+  services.py     Services bundle (settings, registry, llm, embedder, store) injected into routes
   eval/           golden.yaml, run.py
-backend/tests/    pytest, mirrors app/ (test_chunking.py, test_router.py, ...)
+backend/tests/    pytest, mirrors app/ (test_chunking.py, test_router.py, ...); fakes.py holds test doubles
 frontend/src/
   components/     React components, one per file
   lib/            api.ts (fetch + SSE), types.ts, helpers. No JSX here.
@@ -60,11 +62,14 @@ docs/learning/          one learning doc per milestone
 - Answers cite chunk numbers inline as `[n]` and say plainly when the documents do not contain the answer.
 - Structured outputs are parsed into a Pydantic model and validated. Malformed JSON is an error to handle, not to ignore.
 
-## Hand-written by the developer, not generated
-The AI assistant may review these and suggest changes, but it does not write them from scratch:
-- `llm/prompts.py`: the answer prompt (`build_answer_prompt`)
-- `retrieval/search.py`: per-document top-k and the scoring logic
-- README reasoning paragraphs (RAG decisions, eval write-up, trade-offs)
+## Core logic: extra review required
+Prompt assembly and retrieval scoring are where correctness lives. The assistant drafted them (developer's
+choice, M5). Any change to these needs a test and a note in `docs/decisions.md`, and the developer must be
+able to explain it:
+- `llm/prompts.py`: `ANSWER_SYSTEM`, `build_answer_prompt`, `build_route_prompt`
+- `retrieval/search.py`: per-document top-k, distance cut-off, ordering and numbering
+- `retrieval/router.py`: keyword rules and the LLM fallback order
+README reasoning paragraphs are written by the developer, not generated.
 
 ## Secrets and git
 - Never print, log or commit API keys. `.env` is gitignored, and `.env.example` holds names only.

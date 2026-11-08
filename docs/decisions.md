@@ -56,6 +56,22 @@ Raw notes — rewrite in your own words when turning these into the README.
 - Sync route for upload (FastAPI threadpool) over async — SDK calls here are blocking; async would block the event loop.
 - Prices kept in `llm/pricing.py` and every call logs tokens + estimated cost — feeds observability in M8.
 
+### M5 — Routing, retrieval, grounded answers
+- Route before retrieving — rejected "search everything every time" because a Job #2 question would pull Job #1/#3 text into the answer.
+- Routing order: deterministic keyword rules for explicit references ("Job #2", "second role", company name, "compare", "my resume") → Haiku structured-output router when unsure → fallback to all docs if the LLM fails. Rules first because explicit references are unambiguous, free and instant; the runbook's "LLM with keyword fallback" inverted where the rules are certain.
+- Resume always included with any job — nearly every job question is implicitly "…compared to me".
+- Unknown "Job #7" routes to everything so the answer can say it doesn't exist — rejected erroring, which is unfriendly.
+- Top-k per document, not global — a long JD can't crowd the resume out. Resume k=6, job k=4: measured on my docs, k=4 for the resume missed the Veefin "collaborated with business stakeholders" chunk on a client-facing question.
+- Distance cut-off 0.85 but always keep the best chunk per routed doc — a routed doc is never silently absent.
+- Prompt: system rules → list of uploaded docs → `<context>` of numbered `<chunk n doc type section entry>` → question last. Chunk text escaped so a document can't close `</chunk>` and fake a new one.
+- Rule added after testing: "chunks are excerpts — never describe what a document contains overall". Before it, the model said "your one detailed role is…" when only one experience chunk was retrieved.
+- Citations as `[n]` parsed server-side into the `done` event — the UI and eval get the cited list without re-parsing.
+- SSE over WebSockets — one-way server→client stream, plain HTTP, works with curl; no need for bidirectional.
+- Routing + retrieval happen before the stream starts so their failures are normal HTTP 502/503; only model errors arrive as an `error` SSE event.
+- `/chat/retrieve` endpoint (no LLM answer) — the curl check for routing and, in M8, cheap retrieval eval.
+- Sonnet 5.5 at effort `low` for answers (~$0.004–0.015 and 2–5 s per answer on my docs); server-side refusal fallback enabled (`fallbacks: "default"`), cost computed from the model that actually answered.
+- No conversation memory — each question is answered independently (scope contract); listed in "What's next".
+
 ## AI workflow
 How the AI assistant is used, kept as notes during the build.
 
@@ -63,7 +79,7 @@ How the AI assistant is used, kept as notes during the build.
 
 **Handed to the assistant:** scaffolding, boilerplate (FastAPI wiring, Pydantic models, Dockerfiles), parsers, test cases, frontend components.
 
-**Hand-written / owned by me:** the answer prompt (`build_answer_prompt`), per-document retrieval scoring, README reasoning.
+**Core logic:** the answer prompt (`build_answer_prompt`), routing rules and per-document retrieval scoring were drafted by the assistant at my request (M5) and documented in `docs/learning/M5-routing-retrieval-generation.md` so I can explain and defend every line. README reasoning is mine.
 
 **Refused to let it touch:** adding dependencies without asking, committing anything with my work email, writing the README's reasoning.
 

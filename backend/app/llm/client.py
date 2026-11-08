@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
 Effort = Literal["low", "medium", "high"]
+REFUSAL_FALLBACK_BETA = "server-side-fallback-2026-07-01"
 
 
 class LLMError(Exception):
@@ -99,14 +100,20 @@ class ClaudeClient:
         self, *, model: str, system: str, messages: list[MessageParam], effort: Effort = "low",
         max_tokens: int = 8000,
     ) -> Iterator[StreamEvent]:
-        """Yield TextDelta events as tokens arrive, then one StreamDone with usage."""
+        """Yield TextDelta events as tokens arrive, then one StreamDone with usage.
+
+        Server-side refusal fallback is on: if a safety classifier declines, the API retries on
+        a fallback model by itself. `final.model` reports which model actually answered.
+        """
         try:
-            with self._client.messages.stream(
+            with self._client.beta.messages.stream(
                 model=model,
                 max_tokens=max_tokens,
                 system=system,
-                messages=messages,
+                messages=messages,  # type: ignore[arg-type]
                 output_config={"effort": effort},
+                betas=[REFUSAL_FALLBACK_BETA],
+                fallbacks="default",
             ) as stream:
                 for text in stream.text_stream:
                     yield TextDelta(text)
@@ -114,7 +121,7 @@ class ClaudeClient:
         except anthropic.APIError as exc:
             raise _to_llm_error(exc) from exc
 
-        usage = make_usage(model, final.usage.input_tokens, final.usage.output_tokens)
+        usage = make_usage(final.model, final.usage.input_tokens, final.usage.output_tokens)
         logger.info("llm stream", extra={"model": model, "stop_reason": final.stop_reason,
                                          **usage.model_dump(exclude={"model"})})
         yield StreamDone(usage=usage, stop_reason=final.stop_reason)

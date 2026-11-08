@@ -101,3 +101,40 @@ class JobExtraction(BaseModel):
 
 
 Extraction = ResumeExtraction | JobExtraction
+
+
+# ---------- chat: routing, retrieval, answers ----------
+
+RouteScope = Literal["resume_only", "specific_jobs", "all_jobs"]
+RouteMethod = Literal["keyword", "llm", "fallback", "empty"]
+
+
+class RouteDecision(BaseModel):
+    """Structured output of the routing LLM call."""
+
+    scope: RouteScope = Field(description="resume_only: only about the candidate. specific_jobs: about one or more named jobs. all_jobs: comparing or choosing across jobs, or about jobs in general.")
+    job_numbers: list[int] = Field(description="Job numbers the question is about when scope is specific_jobs; otherwise empty.")
+
+
+class RouteResult(BaseModel):
+    doc_ids: list[str]
+    scope: RouteScope | None
+    method: RouteMethod
+    reason: str
+
+
+class RetrievedChunk(BaseModel):
+    """A chunk selected for the prompt, numbered as it will be cited: [n]."""
+
+    n: int
+    chunk: Chunk
+    distance: float
+
+
+class ChatRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=2000)
+
+
+class RetrievalResponse(BaseModel):
+    route: RouteResult
+    sources: list[RetrievedChunk]

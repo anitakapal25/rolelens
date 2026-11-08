@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -43,6 +44,12 @@ class Settings(BaseSettings):
 
     # Retrieval
     top_k_per_doc: int = 4
+    top_k_resume: int = 6  # the resume is the other half of every fit question: give it more room
+    max_distance: float = 0.85  # cosine distance cut-off; the best chunk per routed doc is always kept
+
+    # Chat
+    chat_effort: Literal["low", "medium", "high"] = "low"
+    chat_max_tokens: int = 4000
 
     # CORS (Vite dev server)
     cors_origins: list[str] = ["http://localhost:5173"]

@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import documents
+from app.api import chat, documents
 from app.config import Settings, get_settings
 from app.ingest.parse import EmptyDocument, FileTooLarge, IngestError, TooManyPages, UnsupportedFileType
 from app.ingest.registry import DocumentRegistry
@@ -80,6 +80,7 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         return {"status": "ok"}
 
     app.include_router(documents.router)
+    app.include_router(chat.router)
     return app
 
 
