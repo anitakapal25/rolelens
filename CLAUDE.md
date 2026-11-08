@@ -34,7 +34,7 @@ frontend/src/
   components/     React components, one per file
   lib/            api.ts (fetch + SSE), types.ts, helpers. No JSX here.
 docs/decisions.md       decision log (chose / rejected / why)
-docs/learning/          one learning doc per milestone
+private/learning/       study notes per milestone (gitignored, never published)
 ```
 - **Business logic never sits in a route handler.** A handler is roughly 10 lines: parse, call, return.
 - Dependencies point inward: `api` → `ingest`/`retrieval`/`llm`. Lower layers never import from `api`.
@@ -78,7 +78,7 @@ README reasoning paragraphs are written by the developer, not generated.
 ## Secrets and git
 - Never print, log or commit API keys. `.env` is gitignored, and `.env.example` holds names only.
 - Commit as `anitakapal25 <anitakapal25@gmail.com>` (repo-local config).
-- Small commits with real messages. At the end of each milestone, update `docs/decisions.md`, add `docs/learning/MN-*.md`, then commit and push.
+- Small commits with real messages. At the end of each milestone, update `docs/decisions.md`, add `private/learning/MN-*.md` (gitignored), then commit and push.
 
 ## Evaluation
 - After any change to prompts, routing, retrieval, chunking or matching: run `make test`, then `make eval`

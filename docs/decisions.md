@@ -142,7 +142,7 @@ How the AI assistant is used, kept as notes during the build.
 
 **Handed to the assistant:** scaffolding, boilerplate (FastAPI wiring, Pydantic models, Dockerfiles), parsers, test cases, frontend components.
 
-**Core logic:** the answer prompt (`build_answer_prompt`), routing rules and per-document retrieval scoring were drafted by the assistant at my request (M5) and documented in `docs/learning/M5-routing-retrieval-generation.md` so I can explain and defend every line. README reasoning is mine.
+**Core logic:** the answer prompt (`build_answer_prompt`), routing rules and per-document retrieval scoring were drafted by the assistant at my request (M5) and documented in my private study notes so I can explain and defend every line. README reasoning is mine.
 
 **Refused to let it touch:** adding dependencies without asking, committing anything with my work email, writing the README's reasoning.
 
