@@ -10,7 +10,7 @@ These rules hold for every AI assistant session in this repo. If a rule and a re
 - **Vector DB:** Chroma server (Docker) used through the HTTP client.
 - **Doc registry:** SQLite through the stdlib `sqlite3` module (no ORM).
 - **Parsing:** PyMuPDF (PDF), python-docx (DOCX), plain read for TXT.
-- **Frontend:** Vite, React 18, TypeScript, Tailwind CSS. No SSR, no state library, no UI kit.
+- **Frontend:** Vite 8, React 19, TypeScript 7, Tailwind CSS 4 (`@tailwindcss/vite`), react-markdown. No SSR, no state library, no UI kit, no router.
 - **Orchestration:** hand-rolled. **No LangChain, LlamaIndex, or agent frameworks.**
 - **Infra:** Docker Compose with three services (backend, frontend, chroma).
 
@@ -46,6 +46,8 @@ docs/learning/          one learning doc per milestone
 - Logging uses the stdlib `logging` module with structured (JSON) output. No `print` in app code.
 - Prefer small pure functions. Keep side effects (network, disk) at the edges.
 - Frontend: function components with hooks, no `any`, Tailwind classes only (no CSS-in-JS).
+- Frontend design tokens live in `frontend/src/index.css` (`@theme`): accent = teal, neutral = stone, font = Inter. Don't introduce new colours or fonts.
+- `frontend/src/lib/types.ts` mirrors `backend/app/models.py`: change both together.
 
 ## Dependencies
 - **Never add a package (pip or npm) without asking first.** Say what it does and why the stdlib or an existing dependency is not enough.

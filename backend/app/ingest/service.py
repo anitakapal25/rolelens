@@ -32,7 +32,7 @@ def ingest_document(
     parsed = parse_document(filename, data, s.max_upload_bytes, s.max_pdf_pages)
 
     doc_id = uuid.uuid4().hex[:12]
-    job_number = svc.registry.next_job_number() if doc_type == "job" else None
+    job_number = svc.registry.reserve_job_number() if doc_type == "job" else None
 
     # 1. Remote calls first (nothing persisted yet).
     extraction, extract_usage = extract_structured(svc.llm, s.fast_model, doc_type, parsed.text)

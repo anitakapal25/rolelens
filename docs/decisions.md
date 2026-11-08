@@ -72,6 +72,17 @@ Raw notes — rewrite in your own words when turning these into the README.
 - Sonnet 5.5 at effort `low` for answers (~$0.004–0.015 and 2–5 s per answer on my docs); server-side refusal fallback enabled (`fallbacks: "default"`), cost computed from the model that actually answered.
 - No conversation memory — each question is answered independently (scope contract); listed in "What's next".
 
+### M6 — Frontend: upload + chat
+- React 19 / Vite 8 / TS 7 / Tailwind 4 (latest stable at build time) — CLAUDE.md said React 18; updated rather than pin an older major for no reason.
+- No state library, no router, no UI kit — two panels and one list of messages; `useState` + a `refresh()` after every mutation is enough.
+- `fetch` + `ReadableStream` + a 20-line SSE parser instead of `EventSource` — EventSource can only GET; /chat is a POST with a JSON body.
+- Citations: `[n]` rewritten to `[n](#cite-n)` before markdown rendering, then the `a` renderer swaps those links for pill buttons — keeps react-markdown's safe defaults (no raw HTML) and needs no extra plugin.
+- Sources sent before tokens, so pills are clickable while the answer is still streaming; the source card shows doc label, section and entry so the user can check the claim.
+- Uploads go through a client-side queue (one at a time) with an elapsed-time counter — honest about a 5–25 s server step we can't break into real progress.
+- Found and fixed a backend race while building the queue: `next_job_number()` read `MAX+1` at the start of a slow upload, so two parallel job uploads could both become "Job #2". Replaced with an atomic `UPDATE counters ... RETURNING` (tested with 40 concurrent reservations).
+- Design: one accent (teal), one neutral ramp (stone), Inter, skeleton loaders while retrieving, blinking caret while streaming, explicit empty/error states. Card title drops the "Job #N —" prefix the badge already shows.
+- No frontend unit tests (no test runner dependency added) — verified with a scripted headless-browser walkthrough instead; listed under "standards skipped".
+
 ## AI workflow
 How the AI assistant is used, kept as notes during the build.
 

@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+/* Design tokens: one accent (teal), one neutral ramp (stone), one font (Inter). */
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --color-accent-50: #f0fdfa;
+  --color-accent-100: #ccfbf1;
+  --color-accent-200: #99f6e4;
+  --color-accent-500: #14b8a6;
+  --color-accent-600: #0d9488;
+  --color-accent-700: #0f766e;
+  --color-accent-800: #115e59;
+
+  --animate-shimmer: shimmer 1.4s ease-in-out infinite;
+  @keyframes shimmer {
+    0%, 100% { opacity: 0.45; }
+    50% { opacity: 1; }
+  }
+}
+
+@layer base {
+  html { @apply bg-stone-50 text-stone-900 antialiased; }
+  ::selection { @apply bg-accent-100; }
+}
+
+/* Markdown answer body */
+.prose-answer p { @apply my-2 leading-relaxed; }
+.prose-answer ul { @apply my-2 list-disc space-y-1 pl-5; }
+.prose-answer ol { @apply my-2 list-decimal space-y-1 pl-5; }
+.prose-answer strong { @apply font-semibold text-stone-900; }
+.prose-answer h1, .prose-answer h2, .prose-answer h3 { @apply mt-3 mb-1 text-sm font-semibold text-stone-900; }
+.prose-answer code { @apply rounded bg-stone-100 px-1 py-0.5 text-[0.85em]; }

@@ -40,6 +40,12 @@ CREATE TABLE IF NOT EXISTS chunks (
     text     TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_chunks_doc ON chunks(doc_id);
+CREATE TABLE IF NOT EXISTS counters (
+    name  TEXT PRIMARY KEY,
+    value INTEGER NOT NULL
+);
+INSERT OR IGNORE INTO counters (name, value)
+    SELECT 'job', COALESCE(MAX(job_number), 0) FROM documents;
 """
 
 
@@ -56,7 +62,7 @@ class DocumentRegistry:
 
     @contextmanager
     def _connect(self) -> Iterator[sqlite3.Connection]:
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.db_path, timeout=10)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys = ON")
         try:
@@ -124,10 +130,17 @@ class DocumentRegistry:
 
     # ----- reads -----
 
-    def next_job_number(self) -> int:
+    def reserve_job_number(self) -> int:
+        """Atomically take the next job number. Numbers are never reused, even if an upload fails.
+
+        A single UPDATE ... RETURNING is atomic in SQLite, so concurrent uploads can't get the same
+        number (reading MAX(job_number) at the start of a slow upload could).
+        """
         with self._connect() as conn:
-            row = conn.execute("SELECT COALESCE(MAX(job_number), 0) FROM documents").fetchone()
-        return int(row[0]) + 1
+            row = conn.execute(
+                "UPDATE counters SET value = value + 1 WHERE name = 'job' RETURNING value"
+            ).fetchone()
+        return int(row[0])
 
     def resume_ids(self) -> list[str]:
         with self._connect() as conn:
