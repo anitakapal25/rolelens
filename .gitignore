@@ -37,5 +37,6 @@ backend/app/eval/results/*
 # Machine-specific compose tweaks (e.g. DNS workarounds)
 docker-compose.override.yml
 
-# Private study notes (assistant-written learning docs) — kept local, never published
+# Study notes (assistant-written learning docs) — kept local, never published
+docs/learning/
 private/

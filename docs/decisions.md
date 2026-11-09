@@ -1,7 +1,6 @@
 # Decisions log
 
 One line per decision: what was chosen, what was rejected, and why.
-Raw notes — rewrite in your own words when turning these into the README.
 
 ## Locked stack
 
@@ -138,6 +137,13 @@ Raw notes — rewrite in your own words when turning these into the README.
 ### Deployment cleanup
 - Removed the unused Hugging Face deployment script and instructions; Render is the active hosting target. Kept demo fixtures, evaluation data and Docker Compose because the app, tests and local development still use them.
 
+### M10 — Submission hardening
+- Rate limits decoupled from demo mode (`RATE_LIMIT=true`, on in `Dockerfile.render` and `render.yaml`) — the live service runs with `DEMO_MODE=false` so reviewers can upload, which had left it with no limits on my API keys. Rejected switching uploads off again because trying your own documents is the point of the app.
+- Uploads get their own, lower limit (5 per IP per hour, 50 per day) next to chat (15 per hour, 200 per day) — an upload is the most expensive request (extraction + embeddings + fit matching). Same in-memory sliding window; rejected Redis because the free service is one process.
+- Productionizing plan written for AWS (ECS Fargate, RDS Postgres + pgvector, S3, SQS worker, Cognito, Bedrock, Secrets Manager, WAF, CloudWatch/X-Ray) instead of Render — the brief asks for a hyperscaler. Plan only, no Terraform/CDK in the repo: rejected adding infrastructure code that is never deployed or tested.
+- Eval gap found by using the app: chat answers "what is match score?" with "your documents don't contain a score", because fit scores never reach the chat prompt. The golden case `injection-score` passed anyway (it only banned "100"). Logged in the README as a known gap; fix (pass computed scores to chat + a grader that compares with the dashboard score from the same run) left for "What's next" rather than changing core prompt logic before submission.
+- Study notes kept in `docs/learning/` (gitignored) instead of `private/learning/` — easier to read next to the code; still never committed.
+
 ## AI workflow
 How the AI assistant is used, kept as notes during the build.
 
@@ -147,8 +153,12 @@ How the AI assistant is used, kept as notes during the build.
 
 **Core logic:** the answer prompt (`build_answer_prompt`), routing rules and per-document retrieval scoring were drafted by the assistant at my request (M5) and documented in my private study notes so I can explain and defend every line. README reasoning is mine.
 
-**Refused to let it touch:** adding dependencies without asking, committing anything with my work email, writing the README's reasoning.
+**Refused to let it touch:** adding dependencies without asking, committing anything with my work email.
+
+**README:** the reasoning paragraphs (intro, why retrieval, chunking, eval gap, do's and don'ts) are my points; the assistant fixed spelling and formatting only. The architecture, decision tables, standards list and the AWS productionizing table were drafted by the assistant from this log and reviewed by me.
 
 **Log** (add entries as they happen):
-- M1: Assistant scaffolded the layout, env template and scope list from the runbook. _(Your note: what you changed or kept.)_
-- M2: Assistant drafted `CLAUDE.md` from the runbook's rule list. _(Your note: what you changed after reviewing it.)_
+- M1: Assistant scaffolded the layout, env template and scope list from the runbook.
+- M2: I set the rules for `CLAUDE.md` (fixed stack, no frameworks, ask before dependencies, prompts in one file); the assistant drafted the file from that list and I reviewed it.
+- M3–M9: Assistant implemented each milestone; real-data checks and the eval drove the fixes listed above.
+- M10: Assistant added rate limits for the live service and the AWS plan; I wrote the README reasoning.

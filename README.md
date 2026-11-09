@@ -70,8 +70,10 @@ The app runs as **one** container ([`Dockerfile.render`](Dockerfile.render)): th
 the built frontend at `/`, and an in-memory vector store. Optional demo mode (`DEMO_MODE=true`) loads
 a pre-processed snapshot of
 the sample documents ([`backend/app/demo/seed.json`](backend/app/demo/seed.json)), so it starts
-with zero model calls. In demo mode, uploads are disabled; chat is limited to 15 questions per IP per hour and
-200 per day.
+with zero model calls. In demo mode, uploads are disabled.
+
+Rate limits are on in the Render image (`RATE_LIMIT=true`), with or without demo mode: chat is limited
+to 15 questions per IP per hour and 200 per day, uploads to 5 per IP per hour and 50 per day.
 
 - **Render**: New → Blueprint → this repo ([`render.yaml`](render.yaml)) → enter the two keys.
   The current service has `DEMO_MODE=false` to enable uploads. Data is lost when the free service
@@ -183,23 +185,26 @@ I wrote", not "works the way a user expects".
 Next: give chat the computed scores, and add an eval case that compares the answer with the
 dashboard's score from the same run.
 
-## Productionizing (on Render)
+## Productionizing (on AWS)
 
-For the demo I deployed on Render because it is free.
+For the demo I deployed on Render because it is free. For a real multi-user product I would move to
+AWS. This is a plan only; no AWS infrastructure code is in the repo.
 
-| Concern | Today | Production on Render |
+| Concern | Today | Production on AWS |
 |---|---|---|
-| Compute | One container / Compose on one host | Render **Web Service** (Standard plan) running `app.main`, 2+ instances with autoscaling; nginx replaced by Render's managed TLS and proxy |
-| Registry + vectors | SQLite + Chroma | **Render Postgres** with the **pgvector** extension: one database, `WHERE doc_id = …` filters in SQL, point-in-time recovery |
-| Original files | Not kept | Object storage (e.g. S3 or Cloudflare R2), encrypted, with a retention policy |
-| Ingestion | Synchronous in the request | Upload returns `202`; a Render **Background Worker** processes a job from a **Render Key Value** (Redis-compatible) queue; the UI shows progress |
-| Auth + tenancy | None, one shared workspace | An identity provider (e.g. Auth0 or Clerk) issuing JWTs verified in a FastAPI dependency; `tenant_id` on every row and vector, enforced with Postgres row-level security |
-| Secrets | `.env` | Render **environment groups** per environment; separate, rotated API keys for staging and production |
-| Rate limits + caching | In-memory, per process | Shared counters and per-user quotas in Key Value; cache question embeddings and fit results |
-| Observability | JSON logs, `/metrics`, `/health` | Render log streams to Better Stack or Datadog; OpenTelemetry traces with LLM spans (e.g. self-hosted Langfuse as a private service); alerts on `degraded` health, error rate and daily cost |
-| CI/CD | GitHub Actions (tests, build, Docker) | Render deploys only after CI passes; **preview environments** per PR; nightly `make eval` as a Render **Cron Job** that fails on a pass-rate drop |
-| Cost controls | Rate limit + provider spend caps | Per-tenant token budgets, prompt caching for the static system prompts, Haiku for cheap steps, `max_tokens` caps, budget alerts |
-| Privacy | Local only | Encryption at rest (Render Postgres), a delete-my-data endpoint, data-retention limits, provider data-retention settings |
+| Compute | One container / Compose on one host | **ECS on Fargate** behind an **Application Load Balancer** (TLS via ACM), 2+ tasks across availability zones with autoscaling; the frontend as static files on **S3 + CloudFront** |
+| Registry + vectors | SQLite + Chroma | **RDS for PostgreSQL** (or Aurora) with **pgvector**: one database for documents, chunks and vectors, `WHERE doc_id = …` filters in SQL, automated backups and point-in-time recovery |
+| Original files | Not kept | **S3** bucket, encrypted with KMS, with a lifecycle (retention) policy |
+| Ingestion | Synchronous in the request | Upload goes to S3 and returns `202`; an **SQS** queue feeds a worker (ECS task) that parses, extracts and embeds; the UI polls or streams progress |
+| Auth + tenancy | None, one shared workspace | **Amazon Cognito** issuing JWTs verified in a FastAPI dependency; `tenant_id` on every row and vector, enforced with Postgres row-level security |
+| LLM + embeddings | Anthropic and OpenAI APIs | Claude through **Amazon Bedrock** (data stays in the AWS account and region, IAM instead of API keys); embeddings via Bedrock or the OpenAI API |
+| Secrets | `.env` | **Secrets Manager**, injected into tasks by IAM role; separate keys for staging and production |
+| Rate limits + caching | In-memory, per process | **AWS WAF** rate rules at the edge; per-user quotas and shared counters in **ElastiCache (Redis)**; cache question embeddings and fit results |
+| Observability | JSON logs, `/metrics`, `/health` | **CloudWatch** logs, metrics and alarms (error rate, latency, daily LLM cost); **OpenTelemetry → X-Ray** traces with LLM spans |
+| CI/CD | GitHub Actions (tests, build, Docker) | GitHub Actions with OIDC → push images to **ECR** → deploy to ECS (staging, then production); nightly `make eval` that fails on a pass-rate drop |
+| Infrastructure | Compose file | Terraform or AWS CDK, one stack per environment |
+| Cost controls | Rate limits + provider spend caps | Per-tenant token budgets, prompt caching for static system prompts, Haiku for cheap steps, `max_tokens` caps, **AWS Budgets** alerts |
+| Privacy | One shared workspace | Encryption at rest (RDS, S3 with KMS), a delete-my-data endpoint, data-retention limits, private subnets for the database |
 
 ## Standards followed and skipped
 
@@ -214,7 +219,7 @@ For the demo I deployed on Render because it is free.
 
 **Skipped (deliberately, for a one-day build)**
 - No authentication, no multi-tenancy; one shared workspace.
-- Rate limiting only in the public demo, in memory, per process.
+- Rate limiting in memory, per process (right for one instance; Redis or WAF with several).
 - SQLite registry: one backend instance only.
 - No frontend unit tests (the UI was checked with scripted browser runs).
 - No reranking or hybrid keyword search; no conversation memory.
