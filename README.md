@@ -2,9 +2,10 @@
 
 *See your resume through the lens of any role.*
 
-> ✍️ **Write this (2–3 sentences, your voice):** what RoleLens is and who it's for. Use the lens
-> metaphor here once (the job description is the lens; your resume is what you look at through it;
-> the same resume looks different through each role) and never again.
+RoleLens is an application that helps users see how well their resume matches a job description.
+Users upload their resume and job descriptions from different companies, and the Fit dashboard shows
+a 0–100 score for how well each role matches the resume. Users see their resume through the lens of
+each job description.
 
 **Live app:** https://rolelens-demo.onrender.com (uploads enabled; shared workspace with temporary storage).
 
@@ -116,13 +117,15 @@ Every decision is logged in [`docs/decisions.md`](docs/decisions.md).
 | Orchestration | LangChain, LlamaIndex | **Hand-rolled** (~200 lines: router, per-document search, one prompt builder) | Ready-made integrations; more code to own |
 | Structured output | "Reply in JSON" + parsing | **Claude structured outputs** into Pydantic models | Nothing significant |
 
-> ✍️ **Write this: why retrieval at all?** The four sample documents total ~4k tokens, so they fit
-> in Sonnet's context window. Explain why you still built retrieval, and what changed after measuring.
-> Facts to use:
-> - Routing keeps a Job #2 answer from citing Job #1 *by construction* (a metadata filter), not by hoping.
-> - Numbered, labelled chunks make `[n]` citations precise and checkable.
-> - It scales to 20 JDs or a long CV without a redesign; prompts are 1.4k–4k tokens instead of everything every time.
-> - Measured against it: top-k *inside the resume* dropped evidence twice (a stakeholder-facing role in M5; the current role in M8: "Where do I currently work?" ranked it 8th of 10). So a resume of ≤ 12 chunks is now sent whole (+~1k tokens, ≈ $0.002 per question). Retrieval still selects which JDs and which parts of them.
+### Why retrieval at all?
+
+The sample documents are only about 4k tokens, so all of them could be pasted into every prompt, but
+retrieval is still worth it for two reasons:
+
+1. **Scale:** when a user uploads 20 job descriptions or a long CV, sending everything means big,
+   slow, costly prompts where the model loses focus. Retrieval keeps prompts at 1.4k–4k tokens no
+   matter how many documents there are, and no redesign is required.
+2. **Citations:** retrieval controls which documents the model sees and makes citations precise.
 
 ## Key technical decisions
 
@@ -144,9 +147,11 @@ small, evidence-backed judgments (referencing skills by number, never free text)
 the arithmetic: weight = core 3 / supporting 2 / minor 1, halved for preferred; credit = 1 / 0.5 / 0.
 Years of experience are computed in code from the dated roles, not by the model.
 
-> ✍️ **Write this (2–3 sentences per decision):** why each choice beats the obvious alternative
-> (a fixed-size splitter, global top-k, asking the LLM for a score), and what it costs you. Draw on
-> the M3, M5 and M7 entries in [`docs/decisions.md`](docs/decisions.md).
+### Why these choices
+
+Section-aware chunking is the better choice because documents like JDs and resumes have structure
+(headings and bullets). Using that structure gives chunks that are each about one thing, which makes
+retrieval precise.
 
 ## Evaluation
 
@@ -168,15 +173,19 @@ failed a grader on an answer that *quoted* the injected claim while refusing it.
 vary between fresh matching runs (one sample job scored 54, 59 and 44), which is why fit checks are bands.
 The latest report is in [`backend/app/eval/results/sample-latest.json`](backend/app/eval/results/sample-latest.json).
 
-> ✍️ **Write this: the honest eval paragraph.** Report the real numbers, what failed and why, what
-> you fixed in the app vs. in the eval, the limits (substring graders can't tell quoting from
-> complying; 30 cases is small; one run is one sample of a stochastic system), and what you'd add
-> (an LLM judge for faithfulness and injection cases; majority-vote matching).
+### What the eval missed
+
+I asked "what is match score?" in chat, and it said my documents don't contain a match score, even
+though the Fit dashboard shows one for every job. This happened because chat only sees the documents;
+fit scores are computed separately and never reach the chat prompt. So 16/16 meant "passes the checks
+I wrote", not "works the way a user expects".
+
+Next: give chat the computed scores, and add an eval case that compares the answer with the
+dashboard's score from the same run.
 
 ## Productionizing (on Render)
 
-> ✍️ **Draft outline, so rewrite the reasoning in your own voice.** The free demo already runs on
-> Render; this is what a real multi-user version would change.
+For the demo I deployed on Render because it is free.
 
 | Concern | Today | Production on Render |
 |---|---|---|
@@ -220,13 +229,13 @@ tests for every pure function in `ingest/` and `retrieval/`, all prompts in `llm
 eval rules (run `make eval` after prompt or retrieval changes; read failing answers before calling
 them app bugs). The "AI workflow" section of [`docs/decisions.md`](docs/decisions.md) records how it was used.
 
-> ✍️ **Write this: your do's and don'ts.** Be specific and honest about who wrote what. Facts:
-> - The assistant wrote most of the code, including the core logic (answer prompt, router, per-document
->   search). That was your choice, so you could study it; you reviewed it and can explain each rule.
-> - Dependencies were proposed and approved one by one.
-> - Real-data checks drove most fixes: label truncation, the job-number race, matching generosity, null
->   years from extraction, YAML `#` comments, resume retrieval misses, the eager OpenAI client that broke CI.
-> - What you kept for yourself: this README's reasoning, which questions go in the eval, which trade-offs to accept.
+### Do's and don'ts
+
+- I wrote the CLAUDE.md file, which defines everything the assistant needs to remember in every
+  session: stack, format, style and dependencies.
+- The assistant wrote most of the code, including the core logic (answer prompt, router,
+  per-document search).
+- Before installing any dependency, the assistant asks for my approval.
 
 ## What's next
 
