@@ -24,3 +24,5 @@ services:
         value: "15"
       - key: DEMO_DAILY_LIMIT
         value: "200"
+      - key: RATE_LIMIT        # keeps chat and upload limits on even if DEMO_MODE is switched off
+        value: "true"

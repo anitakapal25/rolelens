@@ -2,10 +2,10 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, File, Form, HTTPException, Response, UploadFile, status
+from fastapi import APIRouter, File, Form, HTTPException, Request, Response, UploadFile, status
 
 from app.api.deps import ServicesDep
-from app.demo.limits import require_writable
+from app.demo.limits import enforce_limit, require_writable
 from app.ingest import service
 from app.ingest.extraction import parse_extraction
 from app.ingest.registry import DocumentNotFound
@@ -26,15 +26,18 @@ def _not_found(exc: DocumentNotFound) -> HTTPException:
 @router.post(
     "",
     status_code=status.HTTP_201_CREATED,
-    responses={400: {"model": ErrorResponse}, 413: {"model": ErrorResponse}, 422: {"model": ErrorResponse}, **UPSTREAM},
+    responses={400: {"model": ErrorResponse}, 413: {"model": ErrorResponse}, 422: {"model": ErrorResponse},
+               429: {"model": ErrorResponse}, **UPSTREAM},
 )
 def upload_document(
     svc: ServicesDep,
+    request: Request,
     file: Annotated[UploadFile, File()],
     doc_type: Annotated[DocType, Form()],
     label: Annotated[str | None, Form(max_length=80)] = None,
 ) -> DocumentSummary:
     require_writable(svc.settings)
+    enforce_limit(svc.upload_limiter, request)
     data = file.file.read(svc.settings.max_upload_bytes + 1)  # at most one byte past the cap
     return service.ingest_document(svc, file.filename or "upload", data, doc_type, label)
 

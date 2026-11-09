@@ -14,7 +14,7 @@ from app.llm.client import ClaudeClient, LLMClient, LLMError
 from app.observability import RequestContextMiddleware, configure_logging, metrics
 from app.retrieval.embed import Embedder, EmbeddingError, OpenAIEmbedder
 from app.retrieval.store import ChromaStore, MemoryStore, VectorStore, VectorStoreError
-from app.demo.limits import RateLimiter
+from app.demo.limits import build_limiters
 from app.services import Services
 
 logger = logging.getLogger(__name__)
@@ -45,10 +45,9 @@ def build_services(
 
 
 def _start_demo(svc: Services) -> None:
-    """Public demo: load the pre-built sample seed (no model calls) and switch on chat limits."""
+    """Public demo: load the pre-built sample seed (no model calls)."""
     from app.demo.seed import read_seed, load_seed
 
-    svc.limiter = RateLimiter(svc.settings.demo_rate_per_ip_hour, svc.settings.demo_daily_limit)
     loaded = load_seed(svc, read_seed())
     logger.info("demo mode", extra={"seeded_documents": loaded, "vector_store": svc.settings.vector_store})
 
@@ -59,6 +58,7 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
 
     app = FastAPI(title="RoleLens API", version="0.1.0")
     app.state.services = services or build_services(settings)
+    app.state.services.limiter, app.state.services.upload_limiter = build_limiters(settings)
     if settings.demo_mode:
         _start_demo(app.state.services)
 

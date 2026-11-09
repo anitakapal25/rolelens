@@ -17,4 +17,5 @@ class Services:
     llm: LLMClient
     embedder: Embedder
     store: VectorStore
-    limiter: RateLimiter | None = None  # set only in demo mode
+    limiter: RateLimiter | None = None         # chat; set in demo mode or with RATE_LIMIT=true
+    upload_limiter: RateLimiter | None = None  # uploads; same switch

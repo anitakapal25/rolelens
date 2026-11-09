@@ -117,6 +117,25 @@ def test_demo_chat_is_rate_limited_per_ip(demo: tuple[TestClient, FakeLLM]) -> N
     assert other.status_code == 200
 
 
+def test_rate_limit_without_demo_keeps_uploads_but_limits_them(tmp_path: Path) -> None:
+    """RATE_LIMIT=true on a public instance with uploads: writable, but uploads and chat are capped per IP."""
+    settings = Settings(registry_db_path=tmp_path / "r.sqlite3", vector_store="memory", rate_limit=True,
+                        upload_rate_per_ip_hour=1, demo_rate_per_ip_hour=1, _env_file=None)
+    services = build_services(settings, llm=FakeLLM(), embedder=SeedSizedEmbedder(), store=MemoryStore())
+    client = TestClient(create_app(settings, services))
+    ip = {"X-Forwarded-For": "203.0.113.9"}
+    resume = b"Jordan Rivera\nExperience\nSenior Engineer, Northstar\n- Built Python services"
+
+    first = client.post("/documents", files={"file": ("cv.txt", resume)}, data={"doc_type": "resume"}, headers=ip)
+    assert first.status_code == 201
+    second = client.post("/documents", files={"file": ("cv.txt", resume)}, data={"doc_type": "resume"}, headers=ip)
+    assert second.status_code == 429 and "uploads per hour" in second.json()["detail"]
+
+    assert client.post("/chat/retrieve", json={"question": "Where do I work?"}, headers=ip).status_code == 200
+    blocked = client.post("/chat/retrieve", json={"question": "Where do I work?"}, headers=ip)
+    assert blocked.status_code == 429 and "questions per hour" in blocked.json()["detail"]
+
+
 def test_non_demo_has_no_limits_and_is_writable(client: TestClient) -> None:
     assert client.get("/config").json()["demo"] is False
     for _ in range(20):

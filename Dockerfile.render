@@ -27,6 +27,7 @@ ENV STATIC_DIR=/app/static \
     REGISTRY_DB_PATH=/data/registry.sqlite3 \
     VECTOR_STORE=memory \
     DEMO_MODE=true \
+    RATE_LIMIT=true \
     PORT=10000
 EXPOSE 10000
 # Shell form so $PORT (set by the host) is expanded.

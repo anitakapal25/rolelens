@@ -60,6 +60,13 @@ class Settings(BaseSettings):
     demo_rate_per_ip_hour: int = 15
     demo_daily_limit: int = 200
 
+    # Rate limits for any public instance. Always on in demo mode; RATE_LIMIT=true also turns them on
+    # when uploads are allowed. Chat uses the demo_* limits above; uploads (the most expensive call:
+    # extraction + embeddings + fit matching) have their own, lower limits.
+    rate_limit: bool = False
+    upload_rate_per_ip_hour: int = 5
+    upload_daily_limit: int = 50
+
     # CORS (Vite dev server)
     cors_origins: list[str] = ["http://localhost:5173"]
 

@@ -1,4 +1,4 @@
-"""Public-demo protections: read-only documents and bounded chat spend.
+"""Public-instance protections: read-only documents (demo) and bounded chat and upload spend.
 
 Process-local and in-memory: right for a single free-tier instance; a shared store (Redis) would be
 needed with several replicas.
@@ -19,9 +19,10 @@ READ_ONLY_MESSAGE = ("This public demo is read-only and uses fictional sample do
 class RateLimiter:
     """Sliding one-hour window per client IP, plus a global cap per UTC day."""
 
-    def __init__(self, per_ip_hour: int, daily_limit: int) -> None:
+    def __init__(self, per_ip_hour: int, daily_limit: int, noun: str = "questions") -> None:
         self.per_ip_hour = per_ip_hour
         self.daily_limit = daily_limit
+        self.noun = noun
         self._lock = threading.Lock()
         self._hits: dict[str, deque[float]] = defaultdict(deque)
         self._day = ""
@@ -35,13 +36,14 @@ class RateLimiter:
             if day != self._day:
                 self._day, self._day_count = day, 0
             if self._day_count >= self.daily_limit:
-                return "The demo has reached today's question limit. Please try again tomorrow, or run RoleLens locally."
+                return (f"The shared limit of {self.daily_limit} {self.noun} for today has been reached. "
+                        "Please try again tomorrow, or run RoleLens locally.")
             hits = self._hits[client]
             while hits and hits[0] <= now - 3600:
                 hits.popleft()
             if len(hits) >= self.per_ip_hour:
                 wait = int(hits[0] + 3600 - now) // 60 + 1
-                return f"Demo limit: {self.per_ip_hour} questions per hour. Try again in about {wait} min."
+                return f"Limit: {self.per_ip_hour} {self.noun} per hour. Try again in about {wait} min."
             hits.append(now)
             self._day_count += 1
             return None
@@ -60,7 +62,15 @@ def require_writable(settings: Settings) -> None:
         raise HTTPException(status.HTTP_403_FORBIDDEN, READ_ONLY_MESSAGE)
 
 
-def enforce_chat_limit(limiter: RateLimiter | None, request: Request) -> None:
+def build_limiters(settings: Settings) -> tuple[RateLimiter | None, RateLimiter | None]:
+    """(chat, upload) limiters: on in demo mode or with RATE_LIMIT=true, otherwise both None."""
+    if not (settings.demo_mode or settings.rate_limit):
+        return None, None
+    return (RateLimiter(settings.demo_rate_per_ip_hour, settings.demo_daily_limit, "questions"),
+            RateLimiter(settings.upload_rate_per_ip_hour, settings.upload_daily_limit, "uploads"))
+
+
+def enforce_limit(limiter: RateLimiter | None, request: Request) -> None:
     if limiter is None:
         return
     message = limiter.check(client_ip(request))
